@@ -48,6 +48,9 @@ DEPTH_MINMAX = {'birdview_depth': [1.180, 2.480],
                 'agentview_depth': [0.1, 1.1],
                 'sideview_depth': [1.0, 2.0],
                 'robot0_eye_in_hand_depth': [0., 1.0],
+                'sideview2_depth': [0.8, 2.2],
+                'backview_depth': [0.6, 1.6],
+                'frontview_depth': [1.2, 2.2],
                 }
 
 def discretize_depth(depth, cam_name):

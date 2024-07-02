@@ -77,6 +77,12 @@ def find_index_after_pattern(text, pattern, after_pattern):
         # Return the index after the pattern
         return index_after_pattern + len(pattern)
 
+def exclude_cameras_from_obs(traj, camera_names):
+    for cam in camera_names:
+        del traj['obs'][f"{cam}_image"]
+        del traj['obs'][f"{cam}_depth"]
+        del traj['obs'][f"{cam}_rgbd"]
+
 def visualize_voxel(traj):
     
     np_voxels = traj['obs']['voxels'][0]
@@ -129,15 +135,15 @@ def extract_trajectory(
     env.reset()
     # xml_with_added_cameras = env.env.model.get_xml() # This xml file (/robosuite/robosuite/models/assets/arenas/pegs_arena.xml
     
-    pattern = '/>\n'
-    after_pattern = 'camera name="sideview"'
+    # pattern = '/>\n'
+    # after_pattern = 'camera name="sideview"'
 
-    insert_index = find_index_after_pattern(initial_state['model'], pattern, after_pattern) + 1
+    # insert_index = find_index_after_pattern(initial_state['model'], pattern, after_pattern) + 1
 
-    new_cameras_xml =  '''<camera mode="fixed" name="sideview2" pos="-0.05651774593317116 -1.5 1.4879572214102434" quat="-0.009905065491771751 0.006877963156909582 0.5912228352893879 -0.806418094001364" />\n    
-                    <camera mode="fixed" name="backview" pos="-1.5 0 1.45" quat="-0.56 -0.43 0.43 0.56" />\n'''
+    # new_cameras_xml =  '''<camera mode="fixed" name="sideview2" pos="-0.05651774593317116 -1.5 1.4879572214102434" quat="-0.009905065491771751 0.006877963156909582 0.5912228352893879 -0.806418094001364" />\n    
+    #                 <camera mode="fixed" name="backview" pos="-1.5 0 1.45" quat="-0.56 -0.43 0.43 0.56" />\n'''
 
-    initial_state['model'] = initial_state['model'][:insert_index] + new_cameras_xml + initial_state['model'][insert_index:]
+    # initial_state['model'] = initial_state['model'][:insert_index] + new_cameras_xml + initial_state['model'][insert_index:]
 
     obs = env.reset_to(initial_state)
 
@@ -226,7 +232,9 @@ def add_rgbd_obs(traj, camera_names, depth_minmax):
 def dataset_states_to_obs(args):
     # create environment to use for data processing
     env_meta = FileUtils.get_env_metadata_from_dataset(dataset_path=args.dataset)
-    camera_names = ['frontview', 'birdview', 'agentview', 'sideview', 'robot0_eye_in_hand', 'sideview2', 'backview']
+    camera_for_obs = ['frontview', 'agentview', 'robot0_eye_in_hand']
+    additional_camera_for_voxel = ['birdview', 'sideview', 'sideview2', 'backview']
+    camera_names = camera_for_obs + additional_camera_for_voxel
 
     env = EnvUtils.create_env_for_data_processing(
         env_meta=env_meta,
@@ -288,7 +296,7 @@ def dataset_states_to_obs(args):
         )
 
         # visualize_voxel(traj)
-
+        exclude_cameras_from_obs(traj, additional_camera_for_voxel)
 
 
         # maybe copy reward or done signal from source file
