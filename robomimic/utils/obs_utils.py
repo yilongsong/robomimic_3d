@@ -56,7 +56,10 @@ DEPTH_MINMAX = {'birdview_depth': [1.180, 2.480],
 def discretize_depth(depth, cam_name):
     # input a true depth and discretize to [0,255]
     # depths.shape = (N, H, W, C)
-    assert cam_name in DEPTH_MINMAX.keys(), "you need add depth_minmax in env_robosuite.py"
+    if cam_name not in DEPTH_MINMAX.keys():
+        print(f"Camera {cam_name} not in DEPTH_MINMAX, using default [0.1, 2.0]")
+        # TODO: Change this to raise an error. Entry should be added to DEPTH_MINMAX when adding a new camera
+        DEPTH_MINMAX[cam_name] = [0.1, 2.0]
     minmax = DEPTH_MINMAX[cam_name]
     minmax_range = minmax[1] - minmax[0]
     ndepths =(np.clip(depth, minmax[0], minmax[1]) - minmax[0]) / minmax_range * 255
