@@ -33,7 +33,6 @@ def find_index_to_add_camera(xml, camera_string = "<camera"):
 def check_output_file():
     f = h5py.File("processed_data.hdf5", "r")
 
-    print(f.keys())
     import matplotlib.pyplot as plt
     plt.imshow(f["data"]["demo_0"]["obs"]["camera1_image"][0])
     plt.show()
@@ -51,14 +50,45 @@ class Simulation():
 
         self.added_cameras= {}
 
+    def sample_points_on_sphere(self, num_points):
+        """
+        Samples equally spaced points using a spherical distribution.
+
+        Args:
+            num_points (int): number of points to sample
+        """
+        # TODO: Change this to samplying from the top half of the sphere.
+        return np.array([[0,-1.5,1.5] for _ in range(num_points)])
+
     def generate_camera_pos_and_quat(self, num_cameras=1):
         """
-        Generates equally-spaced camera positions and quaternions using a spherical distribution.
+        Generates camera positions and quaternions.
 
         Args:
             num_cameras (int): number of cameras to generate
         """
-        pass
+        origin = np.array([0, 0, 0.7])
+        pos = self.sample_points_on_sphere(num_cameras)
+
+        normalized_target_vector = (origin - pos) / np.linalg.norm(origin - pos)
+
+        quats = np.array([self.calculate_quaternion(normalized_target_vector[i]) for i in range(num_cameras)])
+
+        return pos, quats
+
+    def calculate_quaternion(self, normalized_target_orientation, original_orientation=np.array([0, 0, -1])):
+        # TODO: Change the z angle first to align image orientation and combine the two rotations
+        
+        angle = np.arccos(np.dot(original_orientation, normalized_target_orientation))
+
+        cross = np.cross(original_orientation, normalized_target_orientation)
+
+        return np.array([
+            np.cos(angle / 2),
+            np.sin(angle / 2) * cross[0],
+            np.sin(angle / 2) * cross[1],
+            np.sin(angle / 2) * cross[2],
+        ])
 
     def add_camera(self, pos, quat, name):
         """
@@ -289,14 +319,40 @@ class Simulation():
         return traj
 
 if __name__ == "__main__":
-    check_output_file()
-    quit()
+    # # Original orientation
+    # v1 = np.array([0,0,-1])
+    # v2 = np.array([-1,-1,-1.1])
+    # # Normalized direction to object
+    # v2 = v2 / np.linalg.norm(v2)
+    # print(v2)
+
+    # # Angle between them
+    # angle = np.arccos(np.dot(v1, v2))
+    # print(angle * 180 / np.pi)
+
+    # # Axis of rotation
+    # cross = np.cross(v1, v2)
+    # print(cross)
+
+    # # Quaternion
+    # quat = np.array([
+    #     np.cos(angle / 2),
+    #     np.sin(angle / 2) * cross[0],
+    #     np.sin(angle / 2) * cross[1],
+    #     np.sin(angle / 2) * cross[2],
+    # ])
+    # print(quat)
+    # print()
+    # quit()
+    
     env_xml_path = os.environ.get("ENV_XML_PATH")
     dataset_folder = os.environ.get("ROBOT_DATASETS_DIR")
     sim = Simulation(dataset_folder, env_xml_path)
+    pos, quat = sim.generate_camera_pos_and_quat(1)
+
     sim.add_camera(
-        pos=np.array([0, -1.5, 1.4879572214102434]),
-        quat=np.array([0.7933533, 0.6087614, 0, 0]),
+        pos=pos[0],
+        quat=quat[0],
         name="camera1"
     )
     try:
@@ -305,3 +361,5 @@ if __name__ == "__main__":
         print(e)
     finally:
         sim.restore_xml() 
+
+    check_output_file()
