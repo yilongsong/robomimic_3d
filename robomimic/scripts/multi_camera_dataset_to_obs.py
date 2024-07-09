@@ -99,7 +99,7 @@ class Simulation():
         }
 
         self.camera_sphere_radius = 1.5
-        self.camera_pairwise_distance = 0.2
+        self.camera_pairwise_distance = 0.5
 
     def sample_points_on_sphere(self, num_points):
         """
@@ -157,7 +157,7 @@ class Simulation():
             np.array(
                 [
                     -pos[i][0] / 3,
-                    -0.1 if pos[i][1] > 0 else 0.1,
+                    -0.25 if pos[i][1] > 0 else 0.25,
                     0.6
                 ]
             ) for i in range(num_cameras)]
@@ -472,18 +472,18 @@ if __name__ == "__main__":
     # print()
     # quit()
     
-    num_custom_cameras = 5
+    num_custom_cameras = 8
 
     env_xml_path = os.environ.get("ENV_XML_PATH")
     dataset_folder = os.environ.get("ROBOT_DATASETS_DIR")
     sim = Simulation(dataset_folder, env_xml_path)
     pos, quat = sim.generate_camera_pos_and_quat(num_custom_cameras)
 
-    print("Camera positions:")
-    print(pos)
+    # print("Camera positions:")
+    # print(pos)
 
-    print("Camera quaternions:")
-    print(quat)
+    # print("Camera quaternions:")
+    # print(quat)
 
     # quit()
 
