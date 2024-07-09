@@ -98,7 +98,7 @@ class Simulation():
             }
         }
 
-        self.camera_sphere_radius = 1.5
+        self.camera_sphere_radius = 2.0
         self.camera_pairwise_distance = 0.5
 
     def sample_points_on_sphere(self, num_points):
@@ -121,7 +121,7 @@ class Simulation():
             if time.time() > timeout:
                 raise TimeoutError("Point generation function timed out.")
 
-            z = np.random.uniform(0.8, self.camera_sphere_radius)
+            z = np.random.uniform(1.0, self.camera_sphere_radius)
             phi = np.random.uniform(0, 2 * np.pi)
             x = np.sqrt(self.camera_sphere_radius**2 - z**2) * np.cos(phi)
             y = np.sqrt(self.camera_sphere_radius**2 - z**2) * np.sin(phi)
@@ -446,46 +446,14 @@ class Simulation():
 
 
 if __name__ == "__main__":
-    # # Original orientation
-    # v1 = np.array([0,0,-1])
-    # v2 = np.array([-1,-1,-1.1])
-    # # Normalized direction to object
-    # v2 = v2 / np.linalg.norm(v2)
-    # print(v2)
-
-    # # Angle between them
-    # angle = np.arccos(np.dot(v1, v2))
-    # print(angle * 180 / np.pi)
-
-    # # Axis of rotation
-    # cross = np.cross(v1, v2)
-    # print(cross)
-
-    # # Quaternion
-    # quat = np.array([
-    #     np.cos(angle / 2),
-    #     np.sin(angle / 2) * cross[0],
-    #     np.sin(angle / 2) * cross[1],
-    #     np.sin(angle / 2) * cross[2],
-    # ])
-    # print(quat)
-    # print()
-    # quit()
-    
-    num_custom_cameras = 8
+    num_custom_cameras = 5
 
     env_xml_path = os.environ.get("ENV_XML_PATH")
     dataset_folder = os.environ.get("ROBOT_DATASETS_DIR")
     sim = Simulation(dataset_folder, env_xml_path)
     pos, quat = sim.generate_camera_pos_and_quat(num_custom_cameras)
 
-    # print("Camera positions:")
-    # print(pos)
-
-    # print("Camera quaternions:")
-    # print(quat)
-
-    # quit()
+    print(pos)
 
     sim.add_cameras(
         pos=pos,
