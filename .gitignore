@@ -1,3 +1,6 @@
+# Test generated data
+robomimic/scripts/*.hdf5
+
 # pip distribution folder
 dist/
 

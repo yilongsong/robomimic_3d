@@ -2,6 +2,8 @@ import numpy as np
 import os
 import h5py
 import json
+import time
+import math
 from copy import deepcopy
 
 import robomimic.utils.tensor_utils as TensorUtils
@@ -30,11 +32,17 @@ def find_index_to_add_camera(xml, camera_string = "<camera"):
 
     return xml.find(">", last_cam_starting_point) + 1
 
-def check_output_file():
+def check_output_file(num_cameras=1):
     f = h5py.File("processed_data.hdf5", "r")
 
     import matplotlib.pyplot as plt
-    plt.imshow(f["data"]["demo_0"]["obs"]["camera1_image"][0])
+    fig, axes = plt.subplots(math.ceil(num_cameras / 3), 3, figsize=(12, 4))
+    for i in range(num_cameras):
+        camera_name = f"camera{i}"
+        image = f["data"]["demo_0"]["obs"][f"{camera_name}_image"][0]
+        axes[i // 3, i % 3].imshow(image)
+        axes[i // 3, i % 3].set_title(camera_name)
+        axes[i // 3, i % 3].axis("off")
     plt.show()
 
 class Simulation():
@@ -50,15 +58,44 @@ class Simulation():
 
         self.added_cameras= {}
 
-    def sample_points_on_sphere(self, num_points):
+    def sample_points_on_sphere(self, num_points, radius=1.5):
         """
         Samples equally spaced points using a spherical distribution.
 
         Args:
             num_points (int): number of points to sample
         """
-        # TODO: Change this to samplying from the top half of the sphere.
-        return np.array([[0,-1.5,1.5] for _ in range(num_points)])
+
+        points = np.zeros((num_points, 3))
+
+        i = 0
+
+        timeout = time.time() + 10
+
+        while i < num_points:
+            if time.time() > timeout:
+                raise TimeoutError("Point generation function timed out.")
+
+            z = np.random.uniform(0.8, radius)
+            phi = np.random.uniform(0, 2 * np.pi)
+            x = np.sqrt(radius**2 - z**2) * np.cos(phi)
+            y = np.sqrt(radius**2 - z**2) * np.sin(phi)
+
+            if x < -0.2:
+                continue
+
+            add = True
+
+            for j in range(i):
+                if np.linalg.norm(points[j] - np.array([x, y, z])) < 0.3:
+                    add = False
+                    break
+
+            if add:
+                points[i] = np.array([x, y, z])
+                i += 1
+
+        return points
 
     def generate_camera_pos_and_quat(self, num_cameras=1):
         """
@@ -67,12 +104,24 @@ class Simulation():
         Args:
             num_cameras (int): number of cameras to generate
         """
-        origin = np.array([0, 0, 0.7])
         pos = self.sample_points_on_sphere(num_cameras)
 
-        normalized_target_vector = (origin - pos) / np.linalg.norm(origin - pos)
+        origin = [
+            np.array(
+                [
+                    -0.1 + -0.2 if pos[i][0] > 0 else 0.1 + 0.2,
+                    -0.1 if pos[i][1] > 0 else 0.1,
+                    0.6
+                ]
+            ) for i in range(num_cameras)]
+        
+        print("Camera origin:")
+        print(origin)
 
-        quats = np.array([self.calculate_quaternion(normalized_target_vector[i]) for i in range(num_cameras)])
+        target_vectors = np.array([origin[i] - pos[i] for i in range(num_cameras)])
+        normalized_target_vectors = np.array([target_vectors[i] / np.linalg.norm(target_vectors[i]) for i in range(num_cameras)])
+
+        quats = np.array([self.calculate_quaternion(normalized_target_vectors[i]) for i in range(num_cameras)])
 
         return pos, quats
 
@@ -90,7 +139,7 @@ class Simulation():
             np.sin(angle / 2) * cross[2],
         ])
 
-    def add_camera(self, pos, quat, name):
+    def add_cameras(self, pos, quat, name):
         """
         Adds a camera to the simulation.
 
@@ -98,8 +147,8 @@ class Simulation():
             pos (np.array): camera position
             quat (np.array): camera quaternion
         """
-        pos_string = array_to_string(pos)
-        quat_string = array_to_string(quat)
+        pos_string = [array_to_string(p) for p in pos]
+        quat_string = [array_to_string(q) for q in quat]
 
         # Load xml
         with open(self.env_xml_path, "r") as f:
@@ -109,9 +158,10 @@ class Simulation():
 
         # Add camera to xml
         index = find_index_to_add_camera(xml)
-        xml = xml[:index] + \
-            f'\n    <camera mode="fixed" name="{name}" pos="{pos_string}" quat="{quat_string}" />' + \
-            xml[index:]
+        for i in range(len(pos)):
+            xml = xml[:index] + \
+                f'\n    <camera mode="fixed" name="{name[i]}" pos="{pos_string[i]}" quat="{quat_string[i]}" />' + \
+                xml[index:]
         
         # Save xml
         with open(self.env_xml_path, "w") as f:
@@ -119,11 +169,12 @@ class Simulation():
 
         # TODO: Add depth to DEPTH_MINMAX. Should be calculated using sphere_radius
 
-        if name not in self.added_cameras:
-            self.added_cameras[name] = dict(
-                pos=pos,
-                quat=quat,
-            )
+        for i in range(len(pos)):
+            if name[i] not in self.added_cameras:
+                self.added_cameras[name[i]] = dict(
+                    pos=pos[i],
+                    quat=quat[i],
+                )
 
     def restore_xml(self):
         with open(self.env_xml_path, "w") as f:
@@ -345,15 +396,25 @@ if __name__ == "__main__":
     # print()
     # quit()
     
+    num_cameras = 5
+
     env_xml_path = os.environ.get("ENV_XML_PATH")
     dataset_folder = os.environ.get("ROBOT_DATASETS_DIR")
     sim = Simulation(dataset_folder, env_xml_path)
-    pos, quat = sim.generate_camera_pos_and_quat(1)
+    pos, quat = sim.generate_camera_pos_and_quat(num_cameras)
 
-    sim.add_camera(
-        pos=pos[0],
-        quat=quat[0],
-        name="camera1"
+    print("Camera positions:")
+    print(pos)
+
+    # print("Camera quaternions:")
+    # print(quat)
+
+    # quit()
+
+    sim.add_cameras(
+        pos=pos,
+        quat=quat,
+        name=[f"camera{i}" for i in range(num_cameras)]
     )
     try:
         sim.generate_obs_for_dataset()
@@ -362,4 +423,4 @@ if __name__ == "__main__":
     finally:
         sim.restore_xml() 
 
-    check_output_file()
+    check_output_file(num_cameras)
