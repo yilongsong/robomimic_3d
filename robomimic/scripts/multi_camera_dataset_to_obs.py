@@ -36,6 +36,8 @@ def check_output_file(num_cameras=1):
     f = h5py.File("processed_data.hdf5", "r")
 
     import matplotlib.pyplot as plt
+    # plt.imshow(f["data"]["demo_0"]["obs"]["camera0_image"][0])
+    # plt.show()
     fig, axes = plt.subplots(math.ceil(num_cameras / 3), 3, figsize=(12, 4))
     for i in range(num_cameras):
         camera_name = f"camera{i}"
@@ -44,6 +46,27 @@ def check_output_file(num_cameras=1):
         axes[i // 3, i % 3].set_title(camera_name)
         axes[i // 3, i % 3].axis("off")
     plt.show()
+
+def get_angle_from_sin_cos(sin, cos):
+    if sin >= 0 and cos >= 0:
+        return np.arcsin(sin)
+    if sin >= 0 and cos < 0:
+        return np.pi - np.arcsin(sin)
+    if sin < 0 and cos < 0:
+        return np.pi - np.arcsin(sin)
+    if sin < 0 and cos >= 0:
+        return 2 * np.pi + np.arcsin(sin)
+    
+def combine_quaternions(q1, q2):
+    w1, x1, y1, z1 = q1
+    w2, x2, y2, z2 = q2
+
+    w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
+    x = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
+    y = w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2
+    z = w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
+
+    return np.array([w, x, y, z])
 
 class Simulation():
     def __init__(self, datasets_path, env_xml_path):
@@ -65,6 +88,8 @@ class Simulation():
         Args:
             num_points (int): number of points to sample
         """
+
+        # return np.array([1,0,1] * num_points).reshape(num_points, 3)
 
         points = np.zeros((num_points, 3))
 
@@ -104,40 +129,53 @@ class Simulation():
         Args:
             num_cameras (int): number of cameras to generate
         """
+
         pos = self.sample_points_on_sphere(num_cameras)
 
         origin = [
             np.array(
                 [
-                    -0.1 + -0.2 if pos[i][0] > 0 else 0.1 + 0.2,
+                    -pos[i][0] / 3,
                     -0.1 if pos[i][1] > 0 else 0.1,
                     0.6
                 ]
             ) for i in range(num_cameras)]
-        
-        print("Camera origin:")
-        print(origin)
 
         target_vectors = np.array([origin[i] - pos[i] for i in range(num_cameras)])
         normalized_target_vectors = np.array([target_vectors[i] / np.linalg.norm(target_vectors[i]) for i in range(num_cameras)])
 
-        quats = np.array([self.calculate_quaternion(normalized_target_vectors[i]) for i in range(num_cameras)])
+        quats = np.array([self.calculate_quaternion(normalized_target_vectors[i], pos[i]) for i in range(num_cameras)])
 
         return pos, quats
 
-    def calculate_quaternion(self, normalized_target_orientation, original_orientation=np.array([0, 0, -1])):
-        # TODO: Change the z angle first to align image orientation and combine the two rotations
-        
+    def calculate_quaternion(self, normalized_target_orientation, pos, original_orientation=np.array([0, 0, -1])):
         angle = np.arccos(np.dot(original_orientation, normalized_target_orientation))
+
+        normalized_x_y = np.array([pos[0], pos[1]]) / np.linalg.norm([pos[0], pos[1]])
+        horizontal_rotation_angle = (get_angle_from_sin_cos(normalized_x_y[1], normalized_x_y[0]) + np.pi / 2) % (2 * np.pi)
+        # print("xy:", normalized_x_y)
+        # print("Horizontal rotation:", horizontal_rotation_angle * 180 / np.pi)
+        # print()
+
+        horizontal_rotation_quat = np.array([
+            np.cos(horizontal_rotation_angle / 2),
+            0,
+            0,
+            np.sin(horizontal_rotation_angle / 2),
+        ])
 
         cross = np.cross(original_orientation, normalized_target_orientation)
 
-        return np.array([
+        rotation_quat = np.array([
             np.cos(angle / 2),
             np.sin(angle / 2) * cross[0],
             np.sin(angle / 2) * cross[1],
             np.sin(angle / 2) * cross[2],
         ])
+
+        quat = combine_quaternions(rotation_quat, horizontal_rotation_quat)
+
+        return quat
 
     def add_cameras(self, pos, quat, name):
         """
@@ -406,8 +444,8 @@ if __name__ == "__main__":
     print("Camera positions:")
     print(pos)
 
-    # print("Camera quaternions:")
-    # print(quat)
+    print("Camera quaternions:")
+    print(quat)
 
     # quit()
 
