@@ -4,6 +4,7 @@ import h5py
 import json
 import time
 import math
+import matplotlib.pyplot as plt
 from copy import deepcopy
 
 import robomimic.utils.tensor_utils as TensorUtils
@@ -35,7 +36,6 @@ def find_index_to_add_camera(xml, camera_string = "<camera"):
 def check_output_file(num_cameras=1):
     f = h5py.File("processed_data.hdf5", "r")
 
-    import matplotlib.pyplot as plt
     # plt.imshow(f["data"]["demo_0"]["obs"]["camera0_image"][0])
     # plt.show()
     fig, axes = plt.subplots(math.ceil(num_cameras / 3), 3, figsize=(12, 4))
@@ -79,9 +79,29 @@ class Simulation():
                 if file.endswith(".hdf5"):
                     self.datasets.append(os.path.join(root, file))
 
-        self.added_cameras= {}
+        self.cameras= {
+            "frontview": {
+                "pos": np.array([1.6, 0, 1.45]),
+                "quat": np.array([0.56, 0.43, 0.43, 0.56])
+            },
+            "birdview": {
+                "pos": np.array([-0.2, 0, 3.0]),
+                "quat": np.array([0.7071, 0, 0, 0.7071])
+            },
+            "agentview": {
+                "pos": np.array([0.5, 0, 1.35]),
+                "quat": np.array([0.653, 0.271, 0.271, 0.653])
+            },
+            "sideview": {
+                "pos": np.array([0., 1.27612, 1.5]),
+                "quat": np.array([0.00990, 0.00687, 0.59122, 0.80641])
+            }
+        }
 
-    def sample_points_on_sphere(self, num_points, radius=1.5):
+        self.camera_sphere_radius = 1.5
+        self.camera_pairwise_distance = 0.2
+
+    def sample_points_on_sphere(self, num_points):
         """
         Samples equally spaced points using a spherical distribution.
 
@@ -101,24 +121,25 @@ class Simulation():
             if time.time() > timeout:
                 raise TimeoutError("Point generation function timed out.")
 
-            z = np.random.uniform(0.8, radius)
+            z = np.random.uniform(0.8, self.camera_sphere_radius)
             phi = np.random.uniform(0, 2 * np.pi)
-            x = np.sqrt(radius**2 - z**2) * np.cos(phi)
-            y = np.sqrt(radius**2 - z**2) * np.sin(phi)
+            x = np.sqrt(self.camera_sphere_radius**2 - z**2) * np.cos(phi)
+            y = np.sqrt(self.camera_sphere_radius**2 - z**2) * np.sin(phi)
 
             if x < -0.2:
-                continue
-
-            add = True
+                continue  
+            
+            for cam in self.cameras.keys():
+                if np.linalg.norm(self.cameras[cam]["pos"] - np.array([x, y, z])) < self.camera_pairwise_distance:
+                    continue
 
             for j in range(i):
-                if np.linalg.norm(points[j] - np.array([x, y, z])) < 0.3:
-                    add = False
-                    break
+                if np.linalg.norm(points[j] - np.array([x, y, z])) < self.camera_pairwise_distance:
+                    continue
 
-            if add:
-                points[i] = np.array([x, y, z])
-                i += 1
+
+            points[i] = np.array([x, y, z])
+            i += 1
 
         return points
 
@@ -149,13 +170,8 @@ class Simulation():
         return pos, quats
 
     def calculate_quaternion(self, normalized_target_orientation, pos, original_orientation=np.array([0, 0, -1])):
-        angle = np.arccos(np.dot(original_orientation, normalized_target_orientation))
-
         normalized_x_y = np.array([pos[0], pos[1]]) / np.linalg.norm([pos[0], pos[1]])
         horizontal_rotation_angle = (get_angle_from_sin_cos(normalized_x_y[1], normalized_x_y[0]) + np.pi / 2) % (2 * np.pi)
-        # print("xy:", normalized_x_y)
-        # print("Horizontal rotation:", horizontal_rotation_angle * 180 / np.pi)
-        # print()
 
         horizontal_rotation_quat = np.array([
             np.cos(horizontal_rotation_angle / 2),
@@ -164,6 +180,7 @@ class Simulation():
             np.sin(horizontal_rotation_angle / 2),
         ])
 
+        angle = np.arccos(np.dot(original_orientation, normalized_target_orientation))
         cross = np.cross(original_orientation, normalized_target_orientation)
 
         rotation_quat = np.array([
@@ -208,11 +225,13 @@ class Simulation():
         # TODO: Add depth to DEPTH_MINMAX. Should be calculated using sphere_radius
 
         for i in range(len(pos)):
-            if name[i] not in self.added_cameras:
-                self.added_cameras[name[i]] = dict(
-                    pos=pos[i],
-                    quat=quat[i],
-                )
+            self.cameras[name[i]] = dict(
+                pos=pos[i],
+                quat=quat[i],
+            )
+            self.custom_camera_names = [
+                name[i] for i in range(len(pos))
+            ]
 
     def restore_xml(self):
         with open(self.env_xml_path, "w") as f:
@@ -222,12 +241,10 @@ class Simulation():
         dataset = self.datasets[0]
 
         env_meta = FileUtils.get_env_metadata_from_dataset(dataset)
-
-        dataset_cameras = env_meta["env_kwargs"]["camera_names"]
-        camera_names = dataset_cameras + list(self.added_cameras.keys())
+        
         env = EnvUtils.create_env_for_data_processing(
             env_meta=env_meta,
-            camera_names=camera_names, 
+            camera_names=list(self.cameras.keys()), 
             camera_height=128, 
             camera_width=128,
             reward_shaping=False,
@@ -340,8 +357,8 @@ class Simulation():
 
         insert_index = find_index_to_add_camera(initial_state['model'], camera_string="<camera name=\"sideview")
 
-        for camera_name, camera in self.added_cameras.items():
-            new_cameras_xml = f'''\n    <camera mode="fixed" name="{camera_name}" pos="{array_to_string(camera['pos'])}" quat="{array_to_string(camera['quat'])}" />'''
+        for camera in self.custom_camera_names:
+            new_cameras_xml = f'''\n    <camera mode="fixed" name="{camera}" pos="{array_to_string(self.cameras[camera]['pos'])}" quat="{array_to_string(self.cameras[camera]['quat'])}" />'''
             initial_state['model'] = initial_state['model'][:insert_index] + new_cameras_xml + initial_state['model'][insert_index:]
 
         obs = env.reset_to(initial_state)
@@ -406,6 +423,27 @@ class Simulation():
                 traj[k] = np.array(traj[k])
 
         return traj
+    
+    def visualize_camera_views(self):
+        f = h5py.File("processed_data.hdf5", "r")
+
+        num_cameras = len(self.cameras.keys())
+
+        fig, axes = plt.subplots(
+            math.ceil(num_cameras / 3), 
+            3, 
+            figsize=(12, 4)
+        )
+        
+        for i, camera in enumerate(self.cameras.keys()):
+            camera_name = camera
+            image = f["data"]["demo_0"]["obs"][f"{camera_name}_image"][0]
+            axes[i // 3, i % 3].imshow(image)
+            axes[i // 3, i % 3].set_title(camera_name)
+            axes[i // 3, i % 3].axis("off")
+        plt.show()
+
+
 
 if __name__ == "__main__":
     # # Original orientation
@@ -434,12 +472,12 @@ if __name__ == "__main__":
     # print()
     # quit()
     
-    num_cameras = 5
+    num_custom_cameras = 5
 
     env_xml_path = os.environ.get("ENV_XML_PATH")
     dataset_folder = os.environ.get("ROBOT_DATASETS_DIR")
     sim = Simulation(dataset_folder, env_xml_path)
-    pos, quat = sim.generate_camera_pos_and_quat(num_cameras)
+    pos, quat = sim.generate_camera_pos_and_quat(num_custom_cameras)
 
     print("Camera positions:")
     print(pos)
@@ -452,7 +490,7 @@ if __name__ == "__main__":
     sim.add_cameras(
         pos=pos,
         quat=quat,
-        name=[f"camera{i}" for i in range(num_cameras)]
+        name=[f"camera{i}" for i in range(num_custom_cameras)]
     )
     try:
         sim.generate_obs_for_dataset()
@@ -461,4 +499,6 @@ if __name__ == "__main__":
     finally:
         sim.restore_xml() 
 
-    check_output_file(num_cameras)
+
+    sim.visualize_camera_views()
+    # check_output_file(num_custom_cameras)
