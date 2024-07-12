@@ -11,7 +11,6 @@ import robomimic.utils.tensor_utils as TensorUtils
 import robomimic.utils.file_utils as FileUtils
 import robomimic.utils.env_utils as EnvUtils
 from robomimic.envs.env_base import EnvBase
-from robomimic.utils.obs_utils import DEPTH_MINMAX
 
 def array_to_string(arr):
         """
@@ -222,8 +221,6 @@ class Simulation():
         with open(self.env_xml_path, "w") as f:
             f.write(xml)
 
-        # TODO: Add depth to DEPTH_MINMAX. Should be calculated using sphere_radius
-
         for i in range(len(pos)):
             self.cameras[name[i]] = dict(
                 pos=pos[i],
@@ -249,6 +246,13 @@ class Simulation():
             camera_width=128,
             reward_shaping=False,
         )
+
+        # Add the depth ranges for the custom cameras
+        for custom_camera_name in self.custom_camera_names:
+            env.depthminmax.add(
+                custom_camera_name + "_depth",
+                [0.1, self.camera_sphere_radius + 1.0]
+            )
 
         is_robosuite_env = EnvUtils.is_robosuite_env(env_meta)
 

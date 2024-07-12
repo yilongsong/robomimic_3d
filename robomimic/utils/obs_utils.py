@@ -44,23 +44,9 @@ OBS_MODALITY_CLASSES = {}
 OBS_ENCODER_CORES = {"None": None}          # Include default None
 OBS_RANDOMIZERS = {"None": None}            # Include default None
 
-DEPTH_MINMAX = {'birdview_depth': [1.180, 2.480],
-                'agentview_depth': [0.1, 1.1],
-                'sideview_depth': [1.0, 2.0],
-                'robot0_eye_in_hand_depth': [0., 1.0],
-                'sideview2_depth': [0.8, 2.2],
-                'backview_depth': [0.6, 1.6],
-                'frontview_depth': [1.2, 2.2],
-                }
-
-def discretize_depth(depth, cam_name):
+def discretize_depth(depth, cam_name, minmax):
     # input a true depth and discretize to [0,255]
     # depths.shape = (N, H, W, C)
-    if cam_name not in DEPTH_MINMAX.keys():
-        print(f"Camera {cam_name} not in DEPTH_MINMAX, using default [0.1, 2.0]")
-        # TODO: Change this to raise an error. Entry should be added to DEPTH_MINMAX when adding a new camera
-        DEPTH_MINMAX[cam_name] = [0.1, 2.0]
-    minmax = DEPTH_MINMAX[cam_name]
     minmax_range = minmax[1] - minmax[0]
     ndepths =(np.clip(depth, minmax[0], minmax[1]) - minmax[0]) / minmax_range * 255
     return ndepths.astype(np.uint8)

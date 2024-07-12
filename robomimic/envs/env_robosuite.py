@@ -26,7 +26,7 @@ try:
 except ImportError:
     MUJOCO_EXCEPTIONS = []
 
-from robomimic.utils.obs_utils import DEPTH_MINMAX, discretize_depth
+from robomimic.utils.obs_utils import discretize_depth
 
 
 
@@ -58,6 +58,30 @@ def np2o3d(pcd, color=None):
         assert color.min() >= 0
         pcd_o3d.colors = o3d.utility.Vector3dVector(color)
     return pcd_o3d
+
+class DepthMinMax():
+    def __init__(self) -> None:
+        self.values = {
+            'birdview_depth': [1.180, 2.480],
+            'agentview_depth': [0.1, 1.1],
+            'sideview_depth': [1.0, 2.0],
+            'robot0_eye_in_hand_depth': [0., 1.0],
+            'sideview2_depth': [0.8, 2.2],
+            'backview_depth': [0.6, 1.6],
+            'frontview_depth': [1.2, 2.2],
+        }
+
+    def add(self, key, value):
+        self.values[key] = value
+
+    def get(self, key):
+        if key not in self.values:
+            raise ValueError(f"Camera {key} not in depth minmax")
+        
+        return self.values[key]
+    
+    def remove(self, key):
+        del self.values[key]
 
 class EnvRobosuite(EB.EnvBase):
     """Wrapper class for robosuite environments (https://github.com/ARISE-Initiative/robosuite)"""
@@ -125,6 +149,8 @@ class EnvRobosuite(EB.EnvBase):
         self._env_name = env_name
         self._init_kwargs = deepcopy(kwargs)
         self.env = robosuite.make(self._env_name, **kwargs)
+
+        self.depthminmax = DepthMinMax()
 
         if self._is_v1:
             # Make sure joint position observations and eef vel observations are active
@@ -238,7 +264,7 @@ class EnvRobosuite(EB.EnvBase):
             if (k in ObsUtils.OBS_KEYS_TO_MODALITIES) and ObsUtils.key_is_obs_modality(key=k, obs_modality="depth"):
                 ret[k] = di[k][::-1]
                 ret[k] = get_real_depth_map(self.env.sim, ret[k])
-                ret[k] = discretize_depth(ret[k], k)
+                ret[k] = discretize_depth(ret[k], k, self.depthminmax.get(k))
                 if self.postprocess_visual_obs:
                     ret[k] = ObsUtils.process_obs(obs=ret[k], obs_key=k)
 
