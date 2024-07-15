@@ -126,6 +126,9 @@ class Simulation():
             
             theta = theta_max_angle * (m / m_theta) - theta_adjustment
 
+            # Adjust the number of points in the phi direction based on theta. 
+            # Adding 0.7 to the sin(theta) term since not using 0 angle and 
+            # want to make up the difference between num_points and m_theta^2
             m_phi = int(np.round(np.sqrt(num_points) * (np.sin(theta) + 0.7) ))
 
             for n in range(1, m_phi + 1):
@@ -140,11 +143,6 @@ class Simulation():
                 n_count += 1
 
         print(f"Generated {n_count} camera positions on the sphere.")
-
-        x_range = np.min(points[:, 0]), np.max(points[:, 0])
-        y_range = np.min(points[:, 1]), np.max(points[:, 1])
-        print(f"Range of x: {x_range}")
-        print(f"Range of y: {y_range}")
 
         return points
 
@@ -205,8 +203,8 @@ class Simulation():
             np.array(
                 [
                     -pos[i][0] / 2,
-                    -pos[i][1] / 2, # prev: -0.25 if pos[i][1] > 0 else 0.25,
-                    0.7 - (pos[i][2] - 1.5) / 2 # prev: 0.6
+                    -pos[i][1] / 2,
+                    -pos[i][2] / 2 + 1.5
                 ]
             ) for i in range(num_cameras)]
 
@@ -504,7 +502,7 @@ if __name__ == "__main__":
     sim = Simulation(dataset_folder, env_xml_path)
     pos, quat = sim.generate_camera_pos_and_quat(num_custom_cameras)
 
-    print(pos)
+    print(f"Camera positions:\n{pos}")
 
     sim.add_cameras(
         pos=pos,
