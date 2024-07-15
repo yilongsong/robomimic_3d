@@ -204,9 +204,9 @@ class Simulation():
         origin = [
             np.array(
                 [
-                    -pos[i][0] / 3,
-                    -0.25 if pos[i][1] > 0 else 0.25,
-                    0.6
+                    -pos[i][0] / 2,
+                    -pos[i][1] / 2, # prev: -0.25 if pos[i][1] > 0 else 0.25,
+                    0.7 - (pos[i][2] - 1.5) / 2 # prev: 0.6
                 ]
             ) for i in range(num_cameras)]
 
