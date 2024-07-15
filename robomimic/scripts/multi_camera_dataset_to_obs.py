@@ -32,18 +32,19 @@ def find_index_to_add_camera(xml, camera_string = "<camera"):
 
     return xml.find(">", last_cam_starting_point) + 1
 
-def check_output_file(num_cameras=1):
-    f = h5py.File("processed_data.hdf5", "r")
+def visualize_points_on_sphere(points, radius):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(points[:, 0], points[:, 1], points[:, 2])
+    
+    u = np.linspace(0, 2 * np.pi, 100)
+    v = np.linspace(0, np.pi, 100)
+    x = radius * np.outer(np.cos(u), np.sin(v))
+    y = radius * np.outer(np.sin(u), np.sin(v))
+    z = radius * np.outer(np.ones(np.size(u)), np.cos(v))
 
-    # plt.imshow(f["data"]["demo_0"]["obs"]["camera0_image"][0])
-    # plt.show()
-    fig, axes = plt.subplots(math.ceil(num_cameras / 3), 3, figsize=(12, 4))
-    for i in range(num_cameras):
-        camera_name = f"camera{i}"
-        image = f["data"]["demo_0"]["obs"][f"{camera_name}_image"][0]
-        axes[i // 3, i % 3].imshow(image)
-        axes[i // 3, i % 3].set_title(camera_name)
-        axes[i // 3, i % 3].axis("off")
+    ax.plot_surface(x, y, z, color='b', alpha=0.1)
+
     plt.show()
 
 def get_angle_from_sin_cos(sin, cos):
@@ -100,7 +101,55 @@ class Simulation():
         self.camera_sphere_radius = 2.0
         self.camera_pairwise_distance = 0.5
 
-    def sample_points_on_sphere(self, num_points):
+    def generate_equally_spaced_points_on_sphere(self, num_points):
+        """
+        Samples equally spaced points on a sphere.
+
+        Args:
+            num_points (int): number of points to sample
+        """
+        points = np.zeros((num_points, 3))
+
+        # Adjustable parameters
+        theta_max_angle = np.pi / 3
+        theta_adjustment = 0.0
+        phi_max_angle = 5 * np.pi / 4
+        phi_adjustment = 2 * np.pi / 3
+
+        # Derived parameters
+        m_theta = int(np.round(np.sqrt(num_points)))
+        n_count = 0
+
+        for m in range(1, m_theta + 1):
+            if n_count >= num_points:
+                break
+            
+            theta = theta_max_angle * (m / m_theta) - theta_adjustment
+
+            m_phi = int(np.round(np.sqrt(num_points) * (np.sin(theta) + 0.7) ))
+
+            for n in range(1, m_phi + 1):
+                if n_count >= num_points:
+                    break
+                phi = phi_max_angle * (n / m_phi) - phi_adjustment
+                points[n_count] = np.array([
+                    self.camera_sphere_radius * np.sin(theta) * np.cos(phi),
+                    self.camera_sphere_radius * np.sin(theta) * np.sin(phi),
+                    self.camera_sphere_radius * np.cos(theta)
+                ])
+                n_count += 1
+
+        print(f"Generated {n_count} camera positions on the sphere.")
+
+        x_range = np.min(points[:, 0]), np.max(points[:, 0])
+        y_range = np.min(points[:, 1]), np.max(points[:, 1])
+        print(f"Range of x: {x_range}")
+        print(f"Range of y: {y_range}")
+
+        return points
+
+
+    def generate_random_points_on_sphere(self, num_points):
         """
         Samples equally spaced points using a spherical distribution.
 
@@ -150,7 +199,7 @@ class Simulation():
             num_cameras (int): number of cameras to generate
         """
 
-        pos = self.sample_points_on_sphere(num_cameras)
+        pos = self.generate_equally_spaced_points_on_sphere(num_cameras)
 
         origin = [
             np.array(
@@ -447,10 +496,8 @@ class Simulation():
             axes[i // 3, i % 3].axis("off")
         plt.show()
 
-
-
 if __name__ == "__main__":
-    num_custom_cameras = 5
+    num_custom_cameras = 11
 
     env_xml_path = os.environ.get("ENV_XML_PATH")
     dataset_folder = os.environ.get("ROBOT_DATASETS_DIR")
@@ -473,4 +520,3 @@ if __name__ == "__main__":
 
 
     sim.visualize_camera_views()
-    # check_output_file(num_custom_cameras)
