@@ -1035,6 +1035,137 @@ class SpatialSoftmax(ConvBase):
             self.kps = feature_keypoints.detach()
         return feature_keypoints
 
+class SpatialSoftmax3D(ConvBase):
+    """
+    Spatial Softmax Layer.
+
+    Based on Deep Spatial Autoencoders for Visuomotor Learning by Finn et al.
+    https://rll.berkeley.edu/dsae/dsae.pdf
+    """
+    def __init__(
+        self,
+        input_shape,
+        num_kp=32,
+        temperature=1.,
+        learnable_temperature=False,
+        output_variance=False,
+        noise_std=0.0,
+    ):
+        """
+        Args:
+            input_shape (list): shape of the input feature (C, X, Y, Z)
+            num_kp (int): number of keypoints (None for not using spatialsoftmax)
+            temperature (float): temperature term for the softmax.
+            learnable_temperature (bool): whether to learn the temperature
+            output_variance (bool): treat attention as a distribution, and compute second-order statistics to return
+            noise_std (float): add random spatial noise to the predicted keypoints
+        """
+        super(SpatialSoftmax3D, self).__init__()
+        assert len(input_shape) == 4
+        self._in_c, self._in_x, self._in_y, self._in_z = input_shape # (C, X, Y, Z)
+
+        if num_kp is not None:
+            self.nets = torch.nn.Conv3d(self._in_c, num_kp, kernel_size=1)
+            self._num_kp = num_kp
+        else:
+            self.nets = None
+            self._num_kp = self._in_c
+        self.learnable_temperature = learnable_temperature
+        self.output_variance = output_variance
+        self.noise_std = noise_std
+
+        if self.learnable_temperature:
+            # temperature will be learned
+            temperature = torch.nn.Parameter(torch.ones(1) * temperature, requires_grad=True)
+            self.register_parameter('temperature', temperature)
+        else:
+            # temperature held constant after initialization
+            temperature = torch.nn.Parameter(torch.ones(1) * temperature, requires_grad=False)
+            self.register_buffer('temperature', temperature)
+
+        pos_x, pos_y, pos_z = np.meshgrid(
+                np.linspace(-1., 1., self._in_x),
+                np.linspace(-1., 1., self._in_y),
+                np.linspace(-1., 1., self._in_z)
+                )
+        pos_x = torch.from_numpy(pos_x.reshape(1, self._in_x * self._in_y * self._in_z)).float()
+        pos_y = torch.from_numpy(pos_y.reshape(1, self._in_x * self._in_y * self._in_z)).float()
+        pos_z = torch.from_numpy(pos_z.reshape(1, self._in_x * self._in_y * self._in_z)).float()
+        self.register_buffer('pos_x', pos_x)
+        self.register_buffer('pos_y', pos_y)
+        self.register_buffer('pos_z', pos_z)
+
+        self.kps = None
+
+    def __repr__(self):
+        """Pretty print network."""
+        header = format(str(self.__class__.__name__))
+        return header + '(num_kp={}, temperature={}, noise={})'.format(
+            self._num_kp, self.temperature.item(), self.noise_std)
+
+    def output_shape(self, input_shape):
+        """
+        Function to compute output shape from inputs to this module. 
+
+        Args:
+            input_shape (iterable of int): shape of input. Does not include batch dimension.
+                Some modules may not need this argument, if their output does not depend 
+                on the size of the input, or if they assume fixed size input.
+
+        Returns:
+            out_shape ([int]): list of integers corresponding to output shape
+        """
+        assert(len(input_shape) == 4)
+        assert(input_shape[0] == self._in_c)
+        return [self._num_kp, 3]
+
+    def forward(self, feature):
+        """
+        Forward pass through spatial softmax layer. For each keypoint, a 2D spatial 
+        probability distribution is created using a softmax, where the support is the 
+        pixel locations. This distribution is used to compute the expected value of 
+        the pixel location, which becomes a keypoint of dimension 2. K such keypoints
+        are created.
+
+        Returns:
+            out (torch.Tensor or tuple): mean keypoints of shape [B, K, 2], and possibly
+                keypoint variance of shape [B, K, 2, 2] corresponding to the covariance
+                under the 2D spatial softmax distribution
+        """
+        assert(feature.shape[1] == self._in_c)
+        assert(feature.shape[2] == self._in_x)
+        assert(feature.shape[3] == self._in_y)
+        assert(feature.shape[3] == self._in_z)
+        if self.nets is not None:
+            feature = self.nets(feature)
+
+        # [B, K, H, W] -> [B * K, H * W] where K is number of keypoints
+        feature = feature.reshape(-1, self._in_x * self._in_y * self._in_z)
+        # 2d softmax normalization
+        attention = F.softmax(feature / self.temperature, dim=-1)
+        # [1, H * W] x [B * K, H * W] -> [B * K, 1] for spatial coordinate mean in x and y dimensions
+        expected_x = torch.sum(self.pos_x * attention, dim=1, keepdim=True)
+        expected_y = torch.sum(self.pos_y * attention, dim=1, keepdim=True)
+        expected_z = torch.sum(self.pos_z * attention, dim=1, keepdim=True)
+        # stack to [B * K, 2]
+        expected_xyz = torch.cat([expected_x, expected_y, expected_z], 1)
+        # reshape to [B, K, 2]
+        feature_keypoints = expected_xyz.view(-1, self._num_kp, 3)
+
+        if self.training:
+            noise = torch.randn_like(feature_keypoints) * self.noise_std
+            feature_keypoints += noise
+
+        if self.output_variance:
+            # TODO
+            assert NotImplementedError
+
+        if isinstance(feature_keypoints, tuple):
+            self.kps = (feature_keypoints[0].detach(), feature_keypoints[1].detach(), feature_keypoints[2].detach())
+        else:
+            self.kps = feature_keypoints.detach()
+        return feature_keypoints
+    
 
 class SpatialMeanPool(Module):
     """
