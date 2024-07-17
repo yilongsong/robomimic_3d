@@ -98,7 +98,7 @@ class Simulation():
             }
         }
 
-        self.camera_sphere_radius = 2.0
+        self.camera_sphere_radius = 1.8
         self.camera_pairwise_distance = 0.5
 
     def generate_equally_spaced_points_on_sphere(self, num_points):
@@ -204,9 +204,11 @@ class Simulation():
                 [
                     -pos[i][0] / 2,
                     -pos[i][1] / 2,
-                    -pos[i][2] / 2 + 1.5
+                    -pos[i][2] / 2 + 0.85 * self.camera_sphere_radius
                 ]
             ) for i in range(num_cameras)]
+        
+        print(f"Origin: \n{origin}")
 
         target_vectors = np.array([origin[i] - pos[i] for i in range(num_cameras)])
         normalized_target_vectors = np.array([target_vectors[i] / np.linalg.norm(target_vectors[i]) for i in range(num_cameras)])
