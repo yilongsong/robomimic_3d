@@ -271,8 +271,10 @@ class EnvRobosuite(EB.EnvBase):
         # "object" key contains object information
         ret["object"] = np.array(di["object-state"])
         axis = 0 if self.postprocess_visual_obs else 2
-        for cam in self.env.camera_names:
-            ret[f"{cam}_rgbd"] = np.concatenate([ret[f"{cam}_image"], ret[f"{cam}_depth"]], axis=axis)
+
+        if self.env.use_camera_obs:
+            for cam in self.env.camera_names:
+                ret[f"{cam}_rgbd"] = np.concatenate([ret[f"{cam}_image"], ret[f"{cam}_depth"]], axis=axis)
 
         if self.env.use_camera_obs:
             center = np.array([0, 0, 0.7])
@@ -288,7 +290,7 @@ class EnvRobosuite(EB.EnvBase):
             #     [center[0] + ws_size/2, center[1] + ws_size/2, center[2] - 0.05 + ws_size],
             # ])
             voxel_bound = workspace.T
-            voxel_size = 32
+            voxel_size = 64
 
             all_pcds = o3d.geometry.PointCloud()
             for cam_idx, camera_name in enumerate(self.env.camera_names):

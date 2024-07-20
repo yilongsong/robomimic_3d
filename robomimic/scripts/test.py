@@ -1,14 +1,14 @@
 import h5py
-import tqdm
+import os
 
 def main():
-    seq_dir = '/home/yilong/Documents/mimicgen_envs/datasets/core/data.hdf5'
+    # "../../../camera-invariant-robot-learning/datasets/core/coffee_d0.hdf5"
+    dataset_folder = os.environ.get("ROBOT_DATASETS_DIR")
+    f = h5py.File(os.path.join(dataset_folder, "core/coffee_d0.hdf5"), "r")
 
-    with h5py.File(seq_dir, 'r') as f:
-        data = f['data']
-        for demo in data:
-            print(f['data'][demo]['next_obs'].keys())
-            print(f['data'][demo]['obs'].keys())
+    demos = f["data"].keys()
+    print(demos)
+    print("Number of demos in dataset: ", len(demos))
 
 if __name__ == "__main__":
     main()

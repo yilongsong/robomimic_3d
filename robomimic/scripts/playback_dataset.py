@@ -244,7 +244,8 @@ def playback_dataset(args):
     # maybe reduce the number of demonstrations to playback
     if args.n is not None:
         print(f"there are {len(demos)} in this file.")
-        demos = demos[:args.n]
+        # demos = demos[:args.n]
+        demos = np.random.choice(demos, size=args.n, replace=False)
 
     # maybe dump video
     video_writer = None
@@ -293,7 +294,7 @@ def playback_dataset(args):
     f.close()
     if write_video:
         video_writer.close()
-    save_path = os.path.join('/home/mingxi/mingxi_ws/LanManip/LanManip/data/mimicgen', args.dataset.split('/')[-1].split('.')[0])
+    save_path = os.path.join(os.environ.get("ROBOT_DATASETS_DIR"), args.dataset.split('/')[-1].split('.')[0])
     np.save(f'{save_path}.npy', sequences)
 
 
