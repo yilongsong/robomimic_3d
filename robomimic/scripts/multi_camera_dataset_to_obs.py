@@ -285,9 +285,7 @@ class Simulation():
 
     def generate_obs_for_dataset(self):
         dataset = self.datasets[0]
-
         env_meta = FileUtils.get_env_metadata_from_dataset(dataset)
-        
         env = EnvUtils.create_env_for_data_processing(
             env_meta=env_meta,
             camera_names=list(self.cameras.keys()), 
@@ -494,10 +492,10 @@ class Simulation():
             axes[i // 3, i % 3].imshow(image)
             axes[i // 3, i % 3].set_title(camera_name)
             axes[i // 3, i % 3].axis("off")
-        plt.show()
+        plt.savefig('multiview_figure.png')
 
 if __name__ == "__main__":
-    num_custom_cameras = 11
+    num_custom_cameras = 10
 
     env_xml_path = os.environ.get("ENV_XML_PATH")
     dataset_folder = os.environ.get("ROBOT_DATASETS_DIR")
@@ -505,7 +503,6 @@ if __name__ == "__main__":
     pos, quat = sim.generate_camera_pos_and_quat(num_custom_cameras)
 
     print(f"Camera positions:\n{pos}")
-
     sim.add_cameras(
         pos=pos,
         quat=quat,
@@ -513,10 +510,10 @@ if __name__ == "__main__":
     )
     try:
         sim.generate_obs_for_dataset()
+        sim.visualize_camera_views()
     except Exception as e:
         print(e)
     finally:
         sim.restore_xml() 
 
 
-    sim.visualize_camera_views()

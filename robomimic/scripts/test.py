@@ -2,13 +2,9 @@ import h5py
 import os
 
 def main():
-    # "../../../camera-invariant-robot-learning/datasets/core/coffee_d0.hdf5"
-    dataset_folder = os.environ.get("ROBOT_DATASETS_DIR")
-    f = h5py.File(os.path.join(dataset_folder, "core/coffee_d0.hdf5"), "r")
-
-    demos = f["data"].keys()
-    print(demos)
-    print("Number of demos in dataset: ", len(demos))
+    f_out = h5py.File("processed_data.hdf5", "w")
+    f_out.close()
+    f = h5py.File("processed_data.hdf5", "w")
 
 if __name__ == "__main__":
     main()

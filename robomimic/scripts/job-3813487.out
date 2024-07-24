@@ -1,0 +1,38 @@
+## SLURM PROLOG ###############################################################
+##    Job ID : 3813487
+##  Job Name : multi_camera_obs.sh
+##  Nodelist : node1745
+##      CPUs : 
+##   Mem/CPU : 3072 MB
+## Directory : /oscar/data/stellex/nharlalk/robomimic/robomimic/scripts
+##   Job Started : Wed Jul 24 19:17:59 EDT 2024
+###############################################################################
+ROBOMIMIC WARNING(
+    No private macro file found!
+    It is recommended to use a private macro file
+    To setup, run: python /users/nharlalk/data/nharlalk/robomimic/robomimic/scripts/setup_macros.py
+)
+Generated 10 camera positions on the sphere.
+Origin: 
+[array([-0.21766029,  0.21766029,  0.68427664]), array([-0.26657832, -0.15390906,  0.68427664]), array([ 0.07966919, -0.29732948,  0.68427664]), array([-0.25586792,  0.51884882,  0.84056   ]), array([-0.57355963,  0.07551056,  0.84056   ]), array([-0.38143739, -0.43494598,  0.84056   ]), array([ 0.14972911, -0.55879664,  0.84056   ]), array([-0.20172948,  0.75286467,  1.08      ]), array([-0.675     ,  0.38971143,  1.08      ]), array([-0.75286467, -0.20172948,  1.08      ])]
+Camera positions:
+[[ 0.43532057 -0.43532057  1.69144672]
+ [ 0.53315664  0.30781813  1.69144672]
+ [-0.15933839  0.59465896  1.69144672]
+ [ 0.51173584 -1.03769763  1.37888   ]
+ [ 1.14711925 -0.15102111  1.37888   ]
+ [ 0.76287478  0.86989196  1.37888   ]
+ [-0.29945822  1.11759328  1.37888   ]
+ [ 0.40345896 -1.50572935  0.9       ]
+ [ 1.35       -0.77942286  0.9       ]
+ [ 1.50572935  0.40345896  0.9       ]]
+Warning: make sure gym is installed if you want to use the GymWrapper.
+WARNING: robosuite task zoo environments not imported, possibly because robosuite_task_zoo is not installed...
+Got error: No module named 'robosuite_task_zoo'
+
+============= Initialized Observation Utils with Obs Spec =============
+
+using obs modality: low_dim with keys: []
+using obs modality: rgb with keys: ['camera9_image', 'camera6_image', 'camera0_image', 'camera1_image', 'birdview_image', 'camera4_image', 'camera5_image', 'camera8_image', 'frontview_image', 'camera7_image', 'agentview_image', 'camera3_image', 'sideview_image', 'camera2_image']
+using obs modality: depth with keys: ['sideview_depth', 'camera9_depth', 'frontview_depth', 'camera1_depth', 'camera5_depth', 'camera2_depth', 'camera7_depth', 'birdview_depth', 'camera4_depth', 'camera3_depth', 'agentview_depth', 'camera8_depth', 'camera0_depth', 'camera6_depth']
+Error: Error opening file '/users/nharlalk/data/nharlalk/robosuite/robosuite/assets/objects/meshes/coffee_pod.stl': No such file or directory
