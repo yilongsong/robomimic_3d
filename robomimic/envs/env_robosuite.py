@@ -15,6 +15,10 @@ try:
     import mimicgen
 except ImportError:
     pass
+try:
+    import mimicgen_envs
+except ImportError:
+    pass
 
 import robomimic.utils.obs_utils as ObsUtils
 import robomimic.envs.env_base as EB
