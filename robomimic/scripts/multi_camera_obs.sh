@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -o job-%j.out
 #SBATCH -e job-%j.err
-#SBATCH --time=0:05:00
+#SBATCH --time=1:00:00
 
 #SBATCH --nodes=1
 #SBATCH -c 2

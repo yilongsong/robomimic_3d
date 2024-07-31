@@ -285,6 +285,7 @@ class Simulation():
 
     def generate_obs_for_dataset(self):
         dataset = self.datasets[0]
+        print(dataset)
         env_meta = FileUtils.get_env_metadata_from_dataset(dataset)
         env = EnvUtils.create_env_for_data_processing(
             env_meta=env_meta,
