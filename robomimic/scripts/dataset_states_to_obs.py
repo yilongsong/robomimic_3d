@@ -232,7 +232,9 @@ def dataset_states_to_obs(args):
     store_voxel = args.store_voxel
     # create environment to use for data processing
     env_meta = FileUtils.get_env_metadata_from_dataset(dataset_path=args.dataset)
-    camera_names = ['frontview', 'agentview', 'robot0_eye_in_hand', 'spaceview',]
+    # camera_names = ['robot0_eye_in_hand', 'spaceview',]
+    camera_names = args.camera_names
+    print(camera_names)
     additional_camera_for_voxel = ['birdview', 'sideview', 'sideview2', 'backview'] if store_voxel else []
     camera_names = camera_names + additional_camera_for_voxel
 

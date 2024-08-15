@@ -186,7 +186,7 @@ def convert_sideview_to_gripper_batch(sim, images, goal_key, robot0_eef_pos, cam
         intrinsic = camera_info['intrinsic']
 
     
-    bbox_size = (22, 22)
+    bbox_size = (40, 40)
     depth_range = 0.28
     raw_image = images.copy()
     if 'rgbd' in goal_key:
