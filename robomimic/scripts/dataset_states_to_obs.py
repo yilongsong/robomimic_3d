@@ -86,8 +86,6 @@ def exclude_cameras_from_obs(traj, camera_names, store_voxel):
             del traj['obs'][f"{cam}_image"]
             del traj['obs'][f"{cam}_depth"]
             del traj['obs'][f"{cam}_rgbd"]
-    if not store_voxel:
-        del traj['obs']['voxels']
 
 
 def visualize_voxel(traj):
@@ -122,6 +120,7 @@ def extract_trajectory(
     initial_state, 
     states, 
     actions,
+    store_voxel = True
 ):
     """
     Helper function to extract observations, rewards, and dones along a trajectory using
@@ -190,6 +189,8 @@ def extract_trajectory(
             done = done or env.is_success()["task"]
         done = int(done)
 
+        
+
         # collect transition
         traj["obs"].append(obs)
         traj["next_obs"].append(next_obs)
@@ -202,6 +203,10 @@ def extract_trajectory(
     # convert list of dict to dict of list for obs dictionaries (for convenient writes to hdf5 dataset)
     traj["obs"] = TensorUtils.list_of_flat_dict_to_dict_of_list(traj["obs"])
     traj["next_obs"] = TensorUtils.list_of_flat_dict_to_dict_of_list(traj["next_obs"])
+
+    if not store_voxel:
+        del traj["obs"]['voxels']
+        del traj["next_obs"]['voxels']
 
     # list to numpy array
     for k in traj:
@@ -216,7 +221,7 @@ def extract_trajectory(
     return traj
 
 def worker(x):
-    env_meta, args, camera_names, initial_state, states, actions = x
+    env_meta, args, camera_names, initial_state, states, actions, store_voxel = x
     traj = extract_trajectory(
         env_meta=env_meta,
         args=args,
@@ -224,6 +229,7 @@ def worker(x):
         initial_state=initial_state, 
         states=states, 
         actions=actions,
+        store_voxel = store_voxel
     )
     return traj
 
@@ -234,6 +240,9 @@ def dataset_states_to_obs(args):
     env_meta = FileUtils.get_env_metadata_from_dataset(dataset_path=args.dataset)
     # camera_names = ['robot0_eye_in_hand', 'spaceview',]
     camera_names = args.camera_names
+    main_camera = args.main_camera
+    assert main_camera in camera_names, "ERROR: You need to include main_camera in camera_names."
+    env_meta['env_kwargs']['main_camera'] = main_camera
     print(camera_names)
     additional_camera_for_voxel = ['birdview', 'sideview', 'sideview2', 'backview'] if store_voxel else []
     camera_names = camera_names + additional_camera_for_voxel
@@ -300,7 +309,7 @@ def dataset_states_to_obs(args):
             actions_list.append(actions)
             
         with multiprocessing.Pool(num_workers) as pool:
-            trajs = pool.map(worker, [[env_meta, args, camera_names, initial_state_list[j], states_list[j], actions_list[j]] for j in range(len(initial_state_list))]) 
+            trajs = pool.map(worker, [[env_meta, args, camera_names, initial_state_list[j], states_list[j], actions_list[j], store_voxel] for j in range(len(initial_state_list))]) 
 
         for j, ind in enumerate(range(i, end)):
             ep = demos[ind]
@@ -398,8 +407,16 @@ if __name__ == "__main__":
         "--camera_names",
         type=str,
         nargs='+',
-        default=[],
+        default=['robot0_eye_in_hand', 'frontview'],
         help="(optional) camera name(s) to use for image observations. Leave out to not use image observations.",
+    )
+
+    # set main camera which is used to get gripper-centric images
+    parser.add_argument(
+        "--main_camera",
+        type=str,
+        default='frontview',
+        help="(optional) main camera for gripper-centric images",
     )
 
     parser.add_argument(
