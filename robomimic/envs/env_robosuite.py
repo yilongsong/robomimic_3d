@@ -7,6 +7,8 @@ import json
 import numpy as np
 from copy import deepcopy
 import open3d as o3d
+import torch
+import torch.nn.functional as F
 
 import robosuite
 from robosuite.utils.camera_utils import get_real_depth_map, get_camera_extrinsic_matrix, get_camera_intrinsic_matrix
@@ -26,7 +28,8 @@ try:
 except ImportError:
     MUJOCO_EXCEPTIONS = []
 
-from robomimic.utils.obs_utils import DEPTH_MINMAX, discretize_depth
+from robomimic.utils.obs_utils import (DEPTH_MINMAX, discretize_depth, undiscretize_depth, xyz_to_bbox_center_batch,
+                                       crop_and_pad_batch, clip_depth_alone_gripper_x_batch, convert_sideview_to_gripper_batch)
 
 
 
@@ -58,6 +61,7 @@ def np2o3d(pcd, color=None):
         assert color.min() >= 0
         pcd_o3d.colors = o3d.utility.Vector3dVector(color)
     return pcd_o3d
+
 
 class EnvRobosuite(EB.EnvBase):
     """Wrapper class for robosuite environments (https://github.com/ARISE-Initiative/robosuite)"""
@@ -242,14 +246,27 @@ class EnvRobosuite(EB.EnvBase):
                 if self.postprocess_visual_obs:
                     ret[k] = ObsUtils.process_obs(obs=ret[k], obs_key=k)
 
+        
+        
         # "object" key contains object information
         ret["object"] = np.array(di["object-state"])
         axis = 0 if self.postprocess_visual_obs else 2
 
-        # add rgbd into obs
+        
         if self.env.use_camera_obs:
+            # add rgbd into obs
             for cam in self.env.camera_names:
                 ret[f"{cam}_rgbd"] = np.concatenate([ret[f"{cam}_image"], ret[f"{cam}_depth"]], axis=axis)
+            
+            # add rgbd into obs
+            for goal_key in ["spaceview_gripper_rgbd", "spaceview_gripper_image"]:
+                robot0_eef_poss = di['robot0_eef_pos'][None, ...]
+                raw_image = ret[goal_key.replace('_gripper', '')][None, ...].copy()
+                ret[goal_key] = convert_sideview_to_gripper_batch(self.env.sim, raw_image, goal_key, robot0_eef_poss)[0]
+                # generate fake next_gripper obs
+                next_goal_key = goal_key.replace('gripper', 'next_gripper')
+                ret[next_goal_key] = np.zeros_like(ret[goal_key])
+            
 
         if self.env.use_camera_obs:
             center = np.array([0, 0, 0.7])
@@ -573,3 +590,5 @@ class EnvRobosuite(EB.EnvBase):
                 extrinsics=R.tolist(),
             )
         return camera_info
+
+

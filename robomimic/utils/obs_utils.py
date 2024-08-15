@@ -10,6 +10,7 @@ import torch
 import torch.nn.functional as F
 
 import robomimic.utils.tensor_utils as TU
+from robosuite.utils.camera_utils import get_real_depth_map, get_camera_extrinsic_matrix, get_camera_intrinsic_matrix
 
 # MACRO FOR VALID IMAGE CHANNEL SIZES
 VALID_IMAGE_CHANNEL_DIMS = {1, 3}       # depth, rgb
@@ -51,16 +52,154 @@ DEPTH_MINMAX = {'birdview_depth': [1.180, 2.480],
                 'sideview2_depth': [0.8, 2.2],
                 'backview_depth': [0.6, 1.6],
                 'frontview_depth': [1.2, 2.2],
+                'spaceview_depth': [0.45, 1.45],
                 }
 
-def discretize_depth(depth, cam_name):
+def discretize_depth(depth, cam_name, depth_minmax=None):
     # input a true depth and discretize to [0,255]
     # depths.shape = (N, H, W, C)
-    assert cam_name in DEPTH_MINMAX.keys(), "you need add depth_minmax in env_robosuite.py"
-    minmax = DEPTH_MINMAX[cam_name]
-    minmax_range = minmax[1] - minmax[0]
-    ndepths =(np.clip(depth, minmax[0], minmax[1]) - minmax[0]) / minmax_range * 255
-    return ndepths.astype(np.uint8)
+    if depth_minmax == None:
+        assert cam_name in DEPTH_MINMAX.keys(), "you need add depth_minmax in obs_utils.py"
+        depth_minmax = DEPTH_MINMAX[cam_name]
+    minmax_range = depth_minmax[1] - depth_minmax[0]
+    ndepths =(np.clip(depth, depth_minmax[0], depth_minmax[1]) - depth_minmax[0]) / minmax_range * 255
+    return ndepths.astype(np.float64)
+
+def undiscretize_depth(depth, cam_name, depth_minmax=None):
+    # input a true depth and discretize to [0,255]
+    # depths.shape = (N, H, W, C)
+    if depth_minmax == None:
+        assert cam_name in DEPTH_MINMAX.keys(), "you need add depth_minmax in env_robosuite.py"
+        depth_minmax = DEPTH_MINMAX[cam_name]
+    minmax_range = depth_minmax[1] - depth_minmax[0]
+    ndepths = depth / 255. * minmax_range + depth_minmax[0]
+    return ndepths.astype(np.float64)
+
+
+def xyz_to_bbox_center_batch(xyz_points, camera_intrinsic, camera_extrinsic):
+    """
+    Convert xyz points to bbox centers given camera extrinsic matrix.
+    
+    Parameters:
+    - xyz_points: array of shape (batch_size, x, y, z) in world frame
+    - camera_intrinsic: 3x3 list representing camera intrinsic in world frame
+    - camera_extrinsic: 4x4 list representing camera extrinsic in world frame
+    
+    Returns:
+    - bb_centers: array of bounding box centers (x_center, y_center) for each image
+    """
+    camera_intrinsic, camera_extrinsic = np.asarray(camera_intrinsic).astype(np.float64), np.asarray(camera_extrinsic).astype(np.float64)
+    camera_extrinsic_inv, camera_extrinsic_rot, camera_extrinsic_tran = np.eye(4), camera_extrinsic[:3,:3], camera_extrinsic[:3,-1]
+    camera_extrinsic_inv[:3,:3] = camera_extrinsic_rot.T
+    camera_extrinsic_inv[:3,-1] = -camera_extrinsic_rot.T @ camera_extrinsic_tran
+    xyz_world = np.concatenate([xyz_points, np.ones(xyz_points.shape[0])[...,None]], axis=1)
+    xyz_camera = camera_extrinsic_inv @ xyz_world.T
+    xyz_camera = xyz_camera.T
+    xyz_camera = xyz_camera[:,:3] / xyz_camera[:,3:4]
+    uv_camera = camera_intrinsic @ xyz_camera.T
+    uv_camera = uv_camera.T
+    bb_centers = uv_camera[:,:2] / uv_camera[:,2:3]
+    return bb_centers.astype(int)
+
+def crop_and_pad_batch(images, bb_centers, output_size):
+    """
+    Crop and pad a batch of images based on given coordinates.
+    
+    Parameters:
+    - images: array of shape (batch_size, height, width, channels), row is y and column is x
+    - bb_centers: array of bounding box centers (x_center, y_center) for each image
+    - output_size: Tuple (out_height, out_width), the desired size of the output crop
+    
+    Returns:
+    - Tensor of shape (batch_size, channels, out_height, out_width)
+    """
+    batch_size, channels, height, width = images.shape
+    out_height, out_width = output_size
+    image_pad_height = out_height // 2
+    image_pad_width = out_width // 2
+
+    output_size_half = np.array(output_size)[None, ...]//2
+    output_size_half = output_size_half
+    top_lefts = bb_centers - output_size_half
+    bottom_rights = bb_centers + output_size_half
+
+    cropped_images = []
+    
+    for img, top_left, bottom_right in zip(images, top_lefts, bottom_rights):
+        padded_img = np.pad(img, ((image_pad_height,image_pad_height),(image_pad_width,image_pad_width),(0,0)))
+
+        x1, y1 = top_left + image_pad_height
+        x2, y2 = bottom_right + image_pad_width
+        
+        # Crop the image
+        cropped_img = padded_img[y1:y2, x1:x2, :]
+        
+        
+        cropped_images.append(cropped_img)
+    
+    return np.stack(cropped_images)
+
+def clip_depth_alone_gripper_x_batch(rgbd_images, gripper_pose, camera_extrinsic, x_range=0.30):
+    """
+    Clip depths to be centered at gripper x axis for a batch of raw RGBD images.
+    
+    Parameters:
+    - rgbds: array of images in shape (batch_size, height, width, channels), row is y and column is x
+    - gripper_pose: array of 3d positions of shape (batch_size, 3) in world frame
+    - camera_extrinsic: list of a 4x4 transformation matrix of the camera pose in world frame
+    - x_range: the depth range for clipping depth on x-axis. Default 0.3m. 
+    
+    Returns:
+    - array of images of shape (batch_size, height, width, channels), value range is [0, x_range]
+    """
+    camera_extrinsic = np.asarray(camera_extrinsic)
+    x_distance_camera_gripper = camera_extrinsic[0, 3] - gripper_pose[..., 0]
+    x_range_half = x_range / 2
+    rgbd_images[..., -1] = rgbd_images[..., -1] - x_distance_camera_gripper[:, None, None]
+    rgbd_images[..., -1] = np.clip(-rgbd_images[..., -1], -x_range_half, x_range_half) + x_range_half
+    return rgbd_images
+
+def convert_sideview_to_gripper_batch(sim, images, goal_key, robot0_eef_pos, camera_info=None):
+    """
+    Clip depths to be centered at gripper x axis for a batch of raw RGBD images.
+    
+    Parameters:
+    - sim: robosuite env class, for getting camera intrinsic and extrinsic
+    - images: array of images in shape (batch_size, height, width, channels), row is y and column is x
+    - goal_key: image key, e.g., frontview_gripper_image or frontview_gripper_rgbd
+    - robot0_eef_pos: array of 3d positions of shape (batch_size, 3) in world frame
+    - camera_info: dict contains 'intrinsic' and 'extrinsic' which is lists of 4x4 matrices
+    
+    Returns:
+    - array of images of shape (batch_size, height, width, channels), np.uint8
+    """
+    camera_name = goal_key.split('_')[0]
+    b, h, w, c = images.shape
+    assert h == 128 and w == 128
+    assert c == 3 or c == 4
+    if camera_info is None:
+        assert sim is not None
+        extrinsic = get_camera_extrinsic_matrix(sim, camera_name).tolist()
+        intrinsic = get_camera_intrinsic_matrix(sim, camera_name, h, w).tolist()
+    else:
+        extrinsic = camera_info['extrinsic']
+        intrinsic = camera_info['intrinsic']
+
+    
+    bbox_size = (22, 22)
+    depth_range = 0.28
+    raw_image = images.copy()
+    if 'rgbd' in goal_key:
+        raw_image[...,3] = undiscretize_depth(raw_image[...,3], goal_key.split('_')[0]+'_depth')
+
+    
+    bbox_centers = xyz_to_bbox_center_batch(robot0_eef_pos, intrinsic, extrinsic)
+    gripper_centered_current_obs = crop_and_pad_batch(raw_image, bbox_centers, output_size=bbox_size)
+    if 'rgbd' in goal_key:
+        gripper_centered_current_obs = clip_depth_alone_gripper_x_batch(gripper_centered_current_obs, robot0_eef_pos, extrinsic, x_range=depth_range)
+        gripper_centered_current_depth = discretize_depth(gripper_centered_current_obs[...,3], None, depth_minmax=[0, depth_range])
+        gripper_centered_current_obs[...,3] = gripper_centered_current_depth
+    return F.interpolate(torch.from_numpy(gripper_centered_current_obs.astype(np.uint8)).permute(0, 3, 1, 2), (h, w), mode='bilinear').permute(0, 2, 3, 1).numpy()
 
 def register_obs_key(target_class):
     assert target_class not in OBS_MODALITY_CLASSES, f"Already registered modality {target_class}!"

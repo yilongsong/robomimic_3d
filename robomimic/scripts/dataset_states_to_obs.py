@@ -63,6 +63,9 @@ from robomimic.envs.env_base import EnvBase
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
+import multiprocessing
+multiprocessing.set_start_method('spawn', force=True)
+
 def find_index_after_pattern(text, pattern, after_pattern):
         # Find the index of the first occurrence of after_pattern
         start_index = text.find(after_pattern)
@@ -77,11 +80,15 @@ def find_index_after_pattern(text, pattern, after_pattern):
         # Return the index after the pattern
         return index_after_pattern + len(pattern)
 
-def exclude_cameras_from_obs(traj, camera_names):
-    for cam in camera_names:
-        del traj['obs'][f"{cam}_image"]
-        del traj['obs'][f"{cam}_depth"]
-        del traj['obs'][f"{cam}_rgbd"]
+def exclude_cameras_from_obs(traj, camera_names, store_voxel):
+    if len(camera_names) > 0:
+        for cam in camera_names:
+            del traj['obs'][f"{cam}_image"]
+            del traj['obs'][f"{cam}_depth"]
+            del traj['obs'][f"{cam}_rgbd"]
+    if not store_voxel:
+        del traj['obs']['voxels']
+
 
 def visualize_voxel(traj):
     
@@ -109,11 +116,12 @@ def visualize_voxel(traj):
     plt.show()
 
 def extract_trajectory(
-    env, 
+    env_meta,
+    args, 
+    camera_names,
     initial_state, 
     states, 
     actions,
-    done_mode,
 ):
     """
     Helper function to extract observations, rewards, and dones along a trajectory using
@@ -128,22 +136,19 @@ def extract_trajectory(
             success state. If 1, done is 1 at the end of each trajectory. 
             If 2, do both.
     """
-    assert isinstance(env, EnvBase)
+    done_mode = args.done_mode
+    env = EnvUtils.create_env_for_data_processing(
+        env_meta=env_meta,
+        # camera_names=['frontview', 'birdview', 'agentview', 'sideview', 'agentview_full', 'robot0_robotview', 'robot0_eye_in_hand'], 
+        camera_names=camera_names, 
+        camera_height=args.camera_height, 
+        camera_width=args.camera_width, 
+        reward_shaping=args.shaped,
+    )
     assert states.shape[0] == actions.shape[0]
 
     # load the initial state
     env.reset()
-    # xml_with_added_cameras = env.env.model.get_xml() # This xml file (/robosuite/robosuite/models/assets/arenas/pegs_arena.xml
-    
-    # pattern = '/>\n'
-    # after_pattern = 'camera name="sideview"'
-
-    # insert_index = find_index_after_pattern(initial_state['model'], pattern, after_pattern) + 1
-
-    # new_cameras_xml =  '''<camera mode="fixed" name="sideview2" pos="-0.05651774593317116 -1.5 1.4879572214102434" quat="-0.009905065491771751 0.006877963156909582 0.5912228352893879 -0.806418094001364" />\n    
-    #                 <camera mode="fixed" name="backview" pos="-1.5 0 1.45" quat="-0.56 -0.43 0.43 0.56" />\n'''
-
-    # initial_state['model'] = initial_state['model'][:insert_index] + new_cameras_xml + initial_state['model'][insert_index:]
 
     obs = env.reset_to(initial_state)
 
@@ -210,31 +215,26 @@ def extract_trajectory(
 
     return traj
 
-def preprocess_depth(traj, cam_name, depth_minmax):
-    # depths.shape = (N, H, W, C)
-    minmax = depth_minmax[cam_name]
-    minmax_range = minmax[1] - minmax[0]
-    ndepths =(np.clip(traj['obs'][f'{cam_name}_depth'], minmax[0], minmax[1]) - minmax[0]) / minmax_range * 255
-    return ndepths.astype(np.uint8)
-
-def add_rgbd_obs(traj, camera_names, depth_minmax):
-    for cam_name in camera_names:
-        traj['obs'][f'{cam_name}_rgbd'] = np.concatenate([traj['obs'][f'{cam_name}_image'],
-                                                          preprocess_depth(traj, cam_name, depth_minmax)],
-                                                            axis=3)
-        traj['next_obs'][f'{cam_name}_rgbd'] = np.concatenate([traj['next_obs'][f'{cam_name}_image'],
-                                                            preprocess_depth(traj, cam_name, depth_minmax)],
-                                                            axis=3)
-        del traj['obs'][f'{cam_name}_depth']
-        del traj['next_obs'][f'{cam_name}_depth']
+def worker(x):
+    env_meta, args, camera_names, initial_state, states, actions = x
+    traj = extract_trajectory(
+        env_meta=env_meta,
+        args=args,
+        camera_names=camera_names,
+        initial_state=initial_state, 
+        states=states, 
+        actions=actions,
+    )
     return traj
 
+
 def dataset_states_to_obs(args):
+    store_voxel = args.store_voxel
     # create environment to use for data processing
     env_meta = FileUtils.get_env_metadata_from_dataset(dataset_path=args.dataset)
-    camera_for_obs = ['frontview', 'agentview', 'robot0_eye_in_hand']
-    additional_camera_for_voxel = ['birdview', 'sideview', 'sideview2', 'backview']
-    camera_names = camera_for_obs + additional_camera_for_voxel
+    camera_names = ['frontview', 'agentview', 'robot0_eye_in_hand', 'spaceview',]
+    additional_camera_for_voxel = ['birdview', 'sideview', 'sideview2', 'backview'] if store_voxel else []
+    camera_names = camera_names + additional_camera_for_voxel
 
     env = EnvUtils.create_env_for_data_processing(
         env_meta=env_meta,
@@ -276,62 +276,68 @@ def dataset_states_to_obs(args):
     print("output file: {}".format(output_path))
 
     total_samples = 0
-    for ind in range(len(demos)):
-        ep = demos[ind]
+    num_workers = args.num_workers
+    
+    
+    for i in range(0, len(demos), num_workers):
+        end = min(i + num_workers, len(demos))
+        initial_state_list = []
+        states_list = []
+        actions_list = []
+        for j in range(i, end):
+            ep = demos[j]
+            # prepare initial state to reload from
+            states = f["data/{}/states".format(ep)][()]
+            initial_state = dict(states=states[0])
+            if is_robosuite_env:
+                initial_state["model"] = f["data/{}".format(ep)].attrs["model_file"]
+            actions = f["data/{}/actions".format(ep)][()]
 
-        # prepare initial state to reload from
-        states = f["data/{}/states".format(ep)][()]
-        initial_state = dict(states=states[0])
-        if is_robosuite_env:
-            initial_state["model"] = f["data/{}".format(ep)].attrs["model_file"]
+            initial_state_list.append(initial_state)
+            states_list.append(states)
+            actions_list.append(actions)
             
-        # extract obs, rewards, dones
-        actions = f["data/{}/actions".format(ep)][()]
-        traj = extract_trajectory(
-            env=env, 
-            initial_state=initial_state, 
-            states=states, 
-            actions=actions,
-            done_mode=args.done_mode,
-        )
+        with multiprocessing.Pool(num_workers) as pool:
+            trajs = pool.map(worker, [[env_meta, args, camera_names, initial_state_list[j], states_list[j], actions_list[j]] for j in range(len(initial_state_list))]) 
 
-        # visualize_voxel(traj)
-        exclude_cameras_from_obs(traj, additional_camera_for_voxel)
+        for j, ind in enumerate(range(i, end)):
+            ep = demos[ind]
+            traj = trajs[j]
+            exclude_cameras_from_obs(traj, additional_camera_for_voxel, store_voxel)
+            # maybe copy reward or done signal from source file
+            if args.copy_rewards:
+                traj["rewards"] = f["data/{}/rewards".format(ep)][()]
+            if args.copy_dones:
+                traj["dones"] = f["data/{}/dones".format(ep)][()]
 
+            # store transitions
 
-        # maybe copy reward or done signal from source file
-        if args.copy_rewards:
-            traj["rewards"] = f["data/{}/rewards".format(ep)][()]
-        if args.copy_dones:
-            traj["dones"] = f["data/{}/dones".format(ep)][()]
-
-        # store transitions
-
-        # IMPORTANT: keep name of group the same as source file, to make sure that filter keys are
-        #            consistent as well
-        ep_data_grp = data_grp.create_group(ep)
-        ep_data_grp.create_dataset("actions", data=np.array(traj["actions"]))
-        ep_data_grp.create_dataset("states", data=np.array(traj["states"]))
-        ep_data_grp.create_dataset("rewards", data=np.array(traj["rewards"]))
-        ep_data_grp.create_dataset("dones", data=np.array(traj["dones"]))
-        for k in traj["obs"]:
-            if args.compress:
-                ep_data_grp.create_dataset("obs/{}".format(k), data=np.array(traj["obs"][k]), compression="gzip")
-            else:
-                ep_data_grp.create_dataset("obs/{}".format(k), data=np.array(traj["obs"][k]))
-            if not args.exclude_next_obs:
+            # IMPORTANT: keep name of group the same as source file, to make sure that filter keys are
+            #            consistent as well
+            ep_data_grp = data_grp.create_group(ep)
+            ep_data_grp.create_dataset("actions", data=np.array(traj["actions"]))
+            ep_data_grp.create_dataset("states", data=np.array(traj["states"]))
+            ep_data_grp.create_dataset("rewards", data=np.array(traj["rewards"]))
+            ep_data_grp.create_dataset("dones", data=np.array(traj["dones"]))
+            for k in traj["obs"]:
                 if args.compress:
-                    ep_data_grp.create_dataset("next_obs/{}".format(k), data=np.array(traj["next_obs"][k]), compression="gzip")
+                    ep_data_grp.create_dataset("obs/{}".format(k), data=np.array(traj["obs"][k]), compression="gzip")
                 else:
-                    ep_data_grp.create_dataset("next_obs/{}".format(k), data=np.array(traj["next_obs"][k]))
+                    ep_data_grp.create_dataset("obs/{}".format(k), data=np.array(traj["obs"][k]))
+                if not args.exclude_next_obs:
+                    if args.compress:
+                        ep_data_grp.create_dataset("next_obs/{}".format(k), data=np.array(traj["next_obs"][k]), compression="gzip")
+                    else:
+                        ep_data_grp.create_dataset("next_obs/{}".format(k), data=np.array(traj["next_obs"][k]))
 
-        # episode metadata
-        if is_robosuite_env:
-            ep_data_grp.attrs["model_file"] = traj["initial_state_dict"]["model"] # model xml for this episode
-        ep_data_grp.attrs["num_samples"] = traj["actions"].shape[0] # number of transitions in this episode
-        total_samples += traj["actions"].shape[0]
-        print("ep {}: wrote {} transitions to group {}".format(ind, ep_data_grp.attrs["num_samples"], ep))
-
+            # episode metadata
+            if is_robosuite_env:
+                ep_data_grp.attrs["model_file"] = traj["initial_state_dict"]["model"] # model xml for this episode
+            ep_data_grp.attrs["num_samples"] = traj["actions"].shape[0] # number of transitions in this episode
+            total_samples += traj["actions"].shape[0]
+            print("ep {}: wrote {} transitions to group {}".format(ind, ep_data_grp.attrs["num_samples"], ep))
+        
+        del trajs
 
     # copy over all filter keys that exist in the original hdf5
     if "mask" in f:
@@ -369,6 +375,13 @@ if __name__ == "__main__":
         type=int,
         default=None,
         help="(optional) stop after n trajectories are processed",
+    )
+
+    parser.add_argument(
+        "--num_workers",
+        type=int,
+        default=1,
+        help="(optional) num_workers for parallel saving",
     )
 
     # flag for reward shaping
@@ -439,6 +452,13 @@ if __name__ == "__main__":
         "--compress", 
         action='store_true',
         help="(optional) compress observations with gzip option in hdf5",
+    )
+
+    # flag to save voxels in hdf5
+    parser.add_argument(
+        "--store_voxel", 
+        action='store_true',
+        help="(optional) save voxels in dataset",
     )
 
     args = parser.parse_args()
