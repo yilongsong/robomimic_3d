@@ -5,6 +5,7 @@ different kinds of modalities such as images.
 import numpy as np
 from copy import deepcopy
 from collections import OrderedDict
+from scipy.spatial.transform import Rotation
 
 import torch
 import torch.nn.functional as F
@@ -140,24 +141,21 @@ def crop_and_pad_batch(images, bb_centers, output_size):
     return np.stack(cropped_images)
 
 def depth2fgpcd(depth, camera_intrinsic):
-    # depth: (h, w)
-    # fgpcd: (n, 3)
-    # mask: (h, w)
-    h, w = depth.shape
-    mask = np.ones_like(depth, dtype=bool)
-    mask = np.logical_and(mask, depth > 0)
+    # depth: (n, h, w)
+    # fgpcd: (m, n, 3)
+    # mask: (n, h, w)
+    n, h, w = depth.shape
     # mask = (depth <= 0.599/0.8)
-    fgpcd = np.zeros((mask.sum(), 3))
+    fgpcd = np.zeros((n, h*w, 3))
     fx, fy, cx, cy = camera_intrinsic[0,0], camera_intrinsic[1,1], camera_intrinsic[0,-1], camera_intrinsic[1,-1]
     pos_x, pos_y = np.meshgrid(np.arange(w), np.arange(h))
-    pos_x = pos_x[mask]
-    pos_y = pos_y[mask]
-    fgpcd[:, 0] = (pos_x - cx) * depth[mask] / fx
-    fgpcd[:, 1] = (pos_y - cy) * depth[mask] / fy
-    fgpcd[:, 2] = depth[mask]
+    pos_x, pos_y = pos_x[None, ...], pos_y[None, ...]
+    fgpcd[:, :, 0] = ((pos_x - cx) * depth / fx).reshape(n, -1)
+    fgpcd[:, :, 1] = ((pos_y - cy) * depth / fy).reshape(n, -1)
+    fgpcd[:, :, 2] = depth.reshape(n, -1)
     return fgpcd
 
-def clip_depth_alone_gripper_x_batch(rgbd_images, gripper_pose, camera_extrinsic, x_range=0.40):
+def clip_depth_alone_gripper_x_batch(rgbd_images, gripper_pose, camera_intrinsic, camera_extrinsic, x_range=0.40):
     """
     Clip depths to be centered at gripper x axis for a batch of raw RGBD images.
     
@@ -170,34 +168,41 @@ def clip_depth_alone_gripper_x_batch(rgbd_images, gripper_pose, camera_extrinsic
     Returns:
     - array of images of shape (batch_size, height, width, channels), value range is [0, x_range]
     """
-    rgbd_images = rgbd_images.astype(float)
-    # batch_size, height, width, channels = rgbd_images.shape
-    x_range_half = x_range / 2
-    # pcd_rt_cam = depth2fgpcd(rgbd_images[...,-1], camera_intrinsic)
-    # pcd_rt_cam = np.concatenate([pcd_rt_cam, np.ones(pcd_rt_cam.shape[0])], axis=1)
-    # pcd_rt_world = np.dot(camera_extrinsic, pcd_rt_cam.T)
-    # pcd_rt_world = pcd_rt_world / pcd_rt_world[:,-1]
-
-    # pcd_mask = (gripper_pose[..., 0]-x_range_half) < pcd_rt_world[:,0] < (gripper_pose[..., 0]+x_range_half)
-    # # Project the 3D points to 2D
-    # # Homogeneous coordinates [X, Y, Z] -> [X/Z, Y/Z, 1]
-    # points_2D_homogeneous = np.dot(camera_intrinsic, pcd_rt_cam.T / pcd_rt_cam[:, 2].T).T
-    # # Convert homogeneous coordinates to pixel coordinates
-    # u = np.clip(points_2D_homogeneous[:, 0].astype(int), 0, width - 1)
-    # v = np.clip(points_2D_homogeneous[:, 1].astype(int), 0, height - 1)
-
-    # # Map colors to image using advanced indexing
-    # image_mask = np.zeros((height, width), dtype=bool)
-    # image_mask[v, u] = pcd_mask
-
-    # rgbd_images[~image_mask] = np.array([0.,0.,0.])
-
     camera_extrinsic = np.asarray(camera_extrinsic)
+    camera_intrinsic = np.asarray(camera_intrinsic)
+    rgbd_images = rgbd_images.astype(float)
+    x_range_half = x_range / 2
+    batch_size, height, width, channels = rgbd_images.shape
+    
+    pcd_rt_cam = depth2fgpcd(rgbd_images[...,-1], camera_intrinsic)
+    pcd_rt_cam = np.concatenate([pcd_rt_cam, np.ones([batch_size, pcd_rt_cam.shape[1], 1])], axis=2)
+    pcd_rt_world = np.einsum('ij,jkl->ikl', camera_extrinsic, pcd_rt_cam.T).T
+    pcd_rt_world = pcd_rt_world[...,:3] / pcd_rt_world[...,-1:]
+
+    pcd_mask_far = pcd_rt_world[..., 0] > (gripper_pose[..., 0:1] - x_range_half)
+    pcd_mask_close = pcd_rt_world[..., 0] < (gripper_pose[..., 0:1] + x_range_half)
+    pcd_mask = pcd_mask_far * pcd_mask_close
+
+    pcd_mask, pcd_mask_close, pcd_mask_far = pcd_mask.reshape(batch_size, height, width), pcd_mask_close.reshape(batch_size, height, width), pcd_mask_far.reshape(batch_size, height, width)
+    rgbd_images[~pcd_mask,:3] = np.array([0.,0.,0.])
+
+    camera_tilt_angle = Rotation.from_matrix(camera_extrinsic[:3,:3]).as_euler('ZYX')[2] + np.pi / 2
+    # center depth at 
     x_distance_camera_gripper = camera_extrinsic[0, 3] - gripper_pose[..., 0]
-    rgbd_images[..., -1] = rgbd_images[..., -1] - x_distance_camera_gripper[:, None, None] # center depth at gripper x
-    image_mask = (rgbd_images[..., -1] > -x_range_half) * (rgbd_images[..., -1] < x_range_half)
-    rgbd_images[~image_mask, :3] = np.array([0.,0.,0.])
-    rgbd_images[..., 3] = np.clip(rgbd_images[...,3], -x_range_half, x_range_half)
+    rgbd_images[..., 3] = rgbd_images[..., 3] - x_distance_camera_gripper[:,None,None] / np.cos(camera_tilt_angle)
+
+    camera_clip_range = x_range_half / np.cos(camera_tilt_angle)
+    rgbd_images[~pcd_mask_close, 3] = -camera_clip_range
+    rgbd_images[~pcd_mask_far, 3] = camera_clip_range
+    depth_min, depth_max = -camera_clip_range, camera_clip_range
+    rgbd_images[...,3] = (rgbd_images[...,3] - depth_min) / (depth_max - depth_min) * 255
+
+    
+    # x_distance_camera_gripper = camera_extrinsic[0, 3] - gripper_pose[..., 0]
+    # rgbd_images[..., -1] = rgbd_images[..., -1] - x_distance_camera_gripper[:, None, None] # center depth at gripper x
+    # image_mask = (rgbd_images[..., -1] > -x_range_half) * (rgbd_images[..., -1] < x_range_half)
+    # rgbd_images[~image_mask, :3] = np.array([0.,0.,0.])
+    # rgbd_images[..., 3] = np.clip(rgbd_images[...,3], -x_range_half, x_range_half)
     return rgbd_images
 
 def convert_sideview_to_gripper_batch(sim, images, goal_key, robot0_eef_pos, camera_info=None, bbox_size = (40, 40)):
@@ -226,9 +231,8 @@ def convert_sideview_to_gripper_batch(sim, images, goal_key, robot0_eef_pos, cam
         extrinsic = camera_info['extrinsic']
         intrinsic = camera_info['intrinsic']
 
-    
-    
-    depth_range = 0.4
+    depth_range = 0.35
+    rgbd_normalization = True
     raw_image = images.copy().astype(float)
     if 'rgbd' in goal_key:
         raw_image[...,3] = undiscretize_depth(raw_image[...,3], goal_key.split('_')[0]+'_depth')
@@ -238,12 +242,12 @@ def convert_sideview_to_gripper_batch(sim, images, goal_key, robot0_eef_pos, cam
     bbox_center_in_image = np.clip(bbox_centers, 0, np.array([h,w]))
     if not (bbox_center_in_image == bbox_centers).all():
         print("WARNING: End-effector center is not in observation. Trying clipping.")
+
+    if 'rgbd' in goal_key and rgbd_normalization:
+        raw_image = clip_depth_alone_gripper_x_batch(raw_image, robot0_eef_pos, intrinsic, extrinsic, x_range=depth_range)
+        
+
     gripper_centered_current_obs = crop_and_pad_batch(raw_image, bbox_center_in_image, output_size=bbox_size)
-    if 'rgbd' in goal_key:
-        gripper_centered_current_obs = clip_depth_alone_gripper_x_batch(gripper_centered_current_obs, robot0_eef_pos, extrinsic, x_range=depth_range)
-        depth_min, depth_max = -depth_range/2, depth_range/2
-        gripper_centered_current_depth = (gripper_centered_current_obs[...,3] - depth_min) / (depth_max - depth_min) * 255
-        gripper_centered_current_obs[...,3] = gripper_centered_current_depth
     return F.interpolate(torch.from_numpy(gripper_centered_current_obs.astype(np.uint8)).permute(0, 3, 1, 2), (h, w), mode='bilinear').permute(0, 2, 3, 1).numpy()
 
 def register_obs_key(target_class):
