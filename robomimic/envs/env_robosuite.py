@@ -100,8 +100,8 @@ class EnvRobosuite(EB.EnvBase):
             assert (int(robosuite.__version__.split(".")[1]) >= 2), "only support robosuite v0.3 and v1.2+"
 
         kwargs = deepcopy(kwargs)
-        self.main_camera = kwargs['main_camera']
-        kwargs.pop("main_camera", None)
+        # self.main_camera = kwargs['main_camera']
+        # kwargs.pop("main_camera", None)
 
         # update kwargs based on passed arguments
         update_kwargs = dict(
@@ -262,17 +262,17 @@ class EnvRobosuite(EB.EnvBase):
             for cam in self.env.camera_names:
                 ret[f"{cam}_rgbd"] = np.concatenate([ret[f"{cam}_image"], ret[f"{cam}_depth"]], axis=axis)
             
-            # add gripper obs into obs
-            for goal_key in [f"{self.main_camera}_gripper_rgbd"]:
-                robot0_eef_poss = di['robot0_eef_pos'][None, ...]
-                raw_image = ret[goal_key.replace('_gripper', '')].copy()[None, ...]
-                # raw_image = np.transpose(raw_image, (1,2,0))
-                gripper_obs = convert_sideview_to_gripper_batch(self.env.sim, raw_image, goal_key, robot0_eef_poss)[0]
-                # ret[goal_key] = np.transpose(gripper_obs[0], (2,0,1))
-                ret[goal_key] = gripper_obs
-                # generate fake next_gripper obs
-                next_goal_key = goal_key.replace('gripper', 'next_gripper')
-                ret[next_goal_key] = np.zeros_like(ret[goal_key])
+            # # add gripper obs into obs
+            # for goal_key in [f"{self.main_camera}_gripper_rgbd"]:
+            #     robot0_eef_poss = di['robot0_eef_pos'][None, ...]
+            #     raw_image = ret[goal_key.replace('_gripper', '')].copy()[None, ...]
+            #     # raw_image = np.transpose(raw_image, (1,2,0))
+            #     gripper_obs = convert_sideview_to_gripper_batch(self.env.sim, raw_image, goal_key, robot0_eef_poss)[0]
+            #     # ret[goal_key] = np.transpose(gripper_obs[0], (2,0,1))
+            #     ret[goal_key] = gripper_obs
+            #     # generate fake next_gripper obs
+            #     next_goal_key = goal_key.replace('gripper', 'next_gripper')
+            #     ret[next_goal_key] = np.zeros_like(ret[goal_key])
             
 
         if self.env.use_camera_obs:
@@ -535,7 +535,7 @@ class EnvRobosuite(EB.EnvBase):
         # note that @postprocess_visual_obs is False since this env's images will be written to a dataset
         return cls(
             env_name=env_name,
-            render=False, 
+            render=True, 
             render_offscreen=has_camera, 
             use_image_obs=has_camera, 
             postprocess_visual_obs=False,
