@@ -496,7 +496,7 @@ class Simulation():
         plt.savefig('multiview_figure.png')
 
 if __name__ == "__main__":
-    num_custom_cameras = 10
+    num_custom_cameras = 5
 
     env_xml_path = os.environ.get("ENV_XML_PATH")
     dataset_folder = os.environ.get("ROBOT_DATASETS_DIR")
@@ -511,7 +511,7 @@ if __name__ == "__main__":
     )
     try:
         sim.generate_obs_for_dataset()
-        sim.visualize_camera_views()
+        # sim.visualize_camera_views()
     except Exception as e:
         print(e)
     finally:

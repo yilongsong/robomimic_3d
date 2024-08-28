@@ -279,72 +279,73 @@ class EnvRobosuite(EB.EnvBase):
         if self.env.use_camera_obs:
             for cam in self.env.camera_names:
                 ret[f"{cam}_rgbd"] = np.concatenate([ret[f"{cam}_image"], ret[f"{cam}_depth"]], axis=axis)
+                del ret[f'{cam}_depth']
 
-        if self.env.use_camera_obs:
-            center = np.array([0, 0, 0.7])
-            ws_size = 0.6
-            workspace = np.array([
-                [center[0] - ws_size/2, center[0] + ws_size/2],
-                [center[1] - ws_size/2, center[1] + ws_size/2],
-                [center[2], center[2] + ws_size]
-            ])
+        # if self.env.use_camera_obs:
+        #     center = np.array([0, 0, 0.7])
+        #     ws_size = 0.6
+        #     workspace = np.array([
+        #         [center[0] - ws_size/2, center[0] + ws_size/2],
+        #         [center[1] - ws_size/2, center[1] + ws_size/2],
+        #         [center[2], center[2] + ws_size]
+        #     ])
 
-            # voxel_bound = np.array([
-            #     [center[0] - ws_size/2, center[1] - ws_size/2, center[2] - 0.05],
-            #     [center[0] + ws_size/2, center[1] + ws_size/2, center[2] - 0.05 + ws_size],
-            # ])
-            voxel_bound = workspace.T
-            voxel_size = 64
+        #     # voxel_bound = np.array([
+        #     #     [center[0] - ws_size/2, center[1] - ws_size/2, center[2] - 0.05],
+        #     #     [center[0] + ws_size/2, center[1] + ws_size/2, center[2] - 0.05 + ws_size],
+        #     # ])
+        #     voxel_bound = workspace.T
+        #     voxel_size = 64
 
-            all_pcds = o3d.geometry.PointCloud()
-            for cam_idx, camera_name in enumerate(self.env.camera_names):
-                cam_height = self.env.camera_heights[cam_idx]
-                cam_width = self.env.camera_widths[cam_idx]
-                ext_mat = get_camera_extrinsic_matrix(self.env.sim, camera_name)
-                int_mat = get_camera_intrinsic_matrix(self.env.sim, camera_name, cam_height, cam_width)
-                depth = di[f'{camera_name}_depth'][::-1]
-                depth = get_real_depth_map(self.env.sim, depth)
-                depth = depth[:, :, 0]
-                color = di[f'{camera_name}_image'][::-1]
-                # depth = ret[f'{camera_name}_depth'][:, :, 0]
-                # color = ret[f'{camera_name}_image']
-                # if camera_name != 'agentview':
-                #     del ret[f'{camera_name}_depth']
-                #     del ret[f'{camera_name}_image']
-                cam_param = [int_mat[0, 0], int_mat[1, 1], int_mat[0, 2], int_mat[1, 2]]
-                mask = np.ones_like(depth, dtype=bool)
-                pcd = depth2fgpcd(depth, mask, cam_param)
+        #     all_pcds = o3d.geometry.PointCloud()
+        #     for cam_idx, camera_name in enumerate(self.env.camera_names):
+        #         cam_height = self.env.camera_heights[cam_idx]
+        #         cam_width = self.env.camera_widths[cam_idx]
+        #         ext_mat = get_camera_extrinsic_matrix(self.env.sim, camera_name)
+        #         int_mat = get_camera_intrinsic_matrix(self.env.sim, camera_name, cam_height, cam_width)
+        #         depth = di[f'{camera_name}_depth'][::-1]
+        #         depth = get_real_depth_map(self.env.sim, depth)
+        #         depth = depth[:, :, 0]
+        #         color = di[f'{camera_name}_image'][::-1]
+        #         # depth = ret[f'{camera_name}_depth'][:, :, 0]
+        #         # color = ret[f'{camera_name}_image']
+        #         # if camera_name != 'agentview':
+        #         #     del ret[f'{camera_name}_depth']
+        #         #     del ret[f'{camera_name}_image']
+        #         cam_param = [int_mat[0, 0], int_mat[1, 1], int_mat[0, 2], int_mat[1, 2]]
+        #         mask = np.ones_like(depth, dtype=bool)
+        #         pcd = depth2fgpcd(depth, mask, cam_param)
 
-                # pose = np.linalg.inv(ext_mat)
-                pose = ext_mat
+        #         # pose = np.linalg.inv(ext_mat)
+        #         pose = ext_mat
                 
-                trans_pcd = pose @ np.concatenate([pcd.T, np.ones((1, pcd.shape[0]))], axis=0)
-                trans_pcd = trans_pcd[:3, :].T
+        #         trans_pcd = pose @ np.concatenate([pcd.T, np.ones((1, pcd.shape[0]))], axis=0)
+        #         trans_pcd = trans_pcd[:3, :].T
 
-                mask = (trans_pcd[:, 0] > workspace[0, 0]) * (trans_pcd[:, 0] < workspace[0, 1]) * (trans_pcd[:, 1] > workspace[1, 0]) * (trans_pcd[:, 1] < workspace[1, 1]) * (trans_pcd[:, 2] > workspace[2, 0]) * (trans_pcd[:, 2] < workspace[2, 1])
+        #         mask = (trans_pcd[:, 0] > workspace[0, 0]) * (trans_pcd[:, 0] < workspace[0, 1]) * (trans_pcd[:, 1] > workspace[1, 0]) * (trans_pcd[:, 1] < workspace[1, 1]) * (trans_pcd[:, 2] > workspace[2, 0]) * (trans_pcd[:, 2] < workspace[2, 1])
 
-                pcd_o3d = np2o3d(trans_pcd[mask], color.reshape(-1, 3)[mask].astype(np.float64) / 255)
+        #         pcd_o3d = np2o3d(trans_pcd[mask], color.reshape(-1, 3)[mask].astype(np.float64) / 255)
 
-                all_pcds += pcd_o3d
+        #         all_pcds += pcd_o3d
 
-            voxel_grid = o3d.geometry.VoxelGrid.create_from_point_cloud_within_bounds(all_pcds, voxel_size=ws_size/voxel_size+1e-4, min_bound=voxel_bound[0], max_bound=voxel_bound[1])
-            voxels = voxel_grid.get_voxels()  # returns list of voxels
-            if len(voxels) == 0:
-                np_voxels = np.zeros([4, voxel_size, voxel_size, voxel_size], dtype=np.uint8)
-            else:
-                indices = np.stack(list(vx.grid_index for vx in voxels))
-                colors = np.stack(list(vx.color for vx in voxels))
+        #     voxel_grid = o3d.geometry.VoxelGrid.create_from_point_cloud_within_bounds(all_pcds, voxel_size=ws_size/voxel_size+1e-4, min_bound=voxel_bound[0], max_bound=voxel_bound[1])
+        #     voxels = voxel_grid.get_voxels()  # returns list of voxels
+        #     if len(voxels) == 0:
+        #         np_voxels = np.zeros([4, voxel_size, voxel_size, voxel_size], dtype=np.uint8)
+        #     else:
+        #         indices = np.stack(list(vx.grid_index for vx in voxels))
+        #         colors = np.stack(list(vx.color for vx in voxels))
 
-                mask = (indices > 0) * (indices < voxel_size)
-                indices = indices[mask.all(axis=1)]
-                colors = colors[mask.all(axis=1)]
+        #         mask = (indices > 0) * (indices < voxel_size)
+        #         indices = indices[mask.all(axis=1)]
+        #         colors = colors[mask.all(axis=1)]
 
-                np_voxels = np.zeros([4, voxel_size, voxel_size, voxel_size], dtype=np.uint8)
-                np_voxels[0, indices[:, 0], indices[:, 1], indices[:, 2]] = 1
-                np_voxels[1:, indices[:, 0], indices[:, 1], indices[:, 2]] = colors.T * 255
+        #         np_voxels = np.zeros([4, voxel_size, voxel_size, voxel_size], dtype=np.uint8)
+        #         np_voxels[0, indices[:, 0], indices[:, 1], indices[:, 2]] = 1
+        #         np_voxels[1:, indices[:, 0], indices[:, 1], indices[:, 2]] = colors.T * 255
 
-            np_voxels = np.moveaxis(np_voxels, [0, 1, 2, 3], [0, 3, 2, 1])
-            np_voxels = np.flip(np_voxels, (1, 2))
+        #     np_voxels = np.moveaxis(np_voxels, [0, 1, 2, 3], [0, 3, 2, 1])
+        #     np_voxels = np.flip(np_voxels, (1, 2))
 
             # import matplotlib.pyplot as plt
             # from mpl_toolkits.mplot3d import Axes3D
@@ -368,7 +369,7 @@ class EnvRobosuite(EB.EnvBase):
             # plt.savefig('test2.png')
             # plt.close()
 
-            ret['voxels'] = np_voxels
+            # ret['voxels'] = np_voxels
             # ret['pcd'] = all_pcds
 
         if self._is_v1:
