@@ -5,6 +5,7 @@ import json
 import time
 import math
 import matplotlib.pyplot as plt
+import argparse
 from copy import deepcopy
 
 import robomimic.utils.tensor_utils as TensorUtils
@@ -283,7 +284,7 @@ class Simulation():
         with open(self.env_xml_path, "w") as f:
             f.write(self.old_xml)
 
-    def generate_obs_for_dataset(self):
+    def generate_obs_for_dataset(self, generated_dataset_path):
         dataset = self.datasets[0]
         print(dataset)
         env_meta = FileUtils.get_env_metadata_from_dataset(dataset)
@@ -309,12 +310,25 @@ class Simulation():
         demos = list(f["data"].keys())
         inds = np.argsort([int(elem[5:]) for elem in demos])
         demos = [demos[i] for i in inds]
-        
-        # TODO: testing line. Remove later
-        demos = demos[:1]
 
-        f_out = h5py.File("processed_data.hdf5", "w")
+        demos = demos[:2]
+
+        f_out = h5py.File(generated_dataset_path, "w")
         data_group = f_out.create_group("data")
+        # if os.path.exists(generated_dataset_path):
+        #     f_out = h5py.File(generated_dataset_path, "r+")
+        #     data_group = f_out["data"]
+        # else:
+        #     f_out = h5py.File(generated_dataset_path, "w")
+        #     data_group = f_out.create_group("data")
+
+        # existing_demos = list(data_group.keys())
+        # last_demo = existing_demos[-1] if existing_demos else None
+
+        # if last_demo is not None:
+        #     start_ind = int(last_demo[5:]) + 1
+        # else:
+        #     start_ind = 0
 
         total_samples = 0
         for ind in range(len(demos)):
@@ -367,6 +381,7 @@ class Simulation():
                 ep_data_grp.attrs["model_file"] = traj["initial_state_dict"]["model"] # model xml for this episode
             ep_data_grp.attrs["num_samples"] = traj["actions"].shape[0] # number of transitions in this episode
             total_samples += traj["actions"].shape[0]
+            f_out.flush()
             print("ep {}: wrote {} transitions to group {}".format(ind, ep_data_grp.attrs["num_samples"], ep))
 
         if "mask" in f:
@@ -496,6 +511,15 @@ class Simulation():
         plt.savefig('multiview_figure.png')
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        help="path to hdf5 dataset",
+        default="processed_data.hdf5"
+    )
+    args = parser.parse_args()
+
     num_custom_cameras = 5
 
     env_xml_path = os.environ.get("ENV_XML_PATH")
@@ -510,7 +534,7 @@ if __name__ == "__main__":
         name=[f"camera{i}" for i in range(num_custom_cameras)]
     )
     try:
-        sim.generate_obs_for_dataset()
+        sim.generate_obs_for_dataset(generated_dataset_path=args.dataset)
         # sim.visualize_camera_views()
     except Exception as e:
         print(e)

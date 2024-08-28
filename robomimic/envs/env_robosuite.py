@@ -280,6 +280,7 @@ class EnvRobosuite(EB.EnvBase):
             for cam in self.env.camera_names:
                 ret[f"{cam}_rgbd"] = np.concatenate([ret[f"{cam}_image"], ret[f"{cam}_depth"]], axis=axis)
                 del ret[f'{cam}_depth']
+                del ret[f'{cam}_image']
 
         # if self.env.use_camera_obs:
         #     center = np.array([0, 0, 0.7])
