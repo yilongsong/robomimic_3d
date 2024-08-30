@@ -148,7 +148,7 @@ def extract_trajectory(
 
     # load the initial state
     env.reset()
-
+    env.env.viewer.set_camera(camera_id=0)
     obs = env.reset_to(initial_state)
 
     
@@ -173,7 +173,8 @@ def extract_trajectory(
         else:
             # reset to simulator state to get observation
             next_obs = env.reset_to({"states" : states[t]})
-
+        print(actions[t-1])
+        env.env.render()
         # infer reward signal
         # note: our tasks use reward r(s'), reward AFTER transition, so this is
         #       the reward for the current timestep
@@ -242,7 +243,7 @@ def dataset_states_to_obs(args):
     camera_names = args.camera_names
     main_camera = args.main_camera
     assert main_camera in camera_names, "ERROR: You need to include main_camera in camera_names."
-    env_meta['env_kwargs']['main_camera'] = main_camera
+    # env_meta['env_kwargs']['main_camera'] = main_camera
     print(camera_names)
     additional_camera_for_voxel = ['birdview', 'sideview', 'sideview2', 'backview'] if store_voxel else []
     camera_names = camera_names + additional_camera_for_voxel
@@ -407,7 +408,7 @@ if __name__ == "__main__":
         "--camera_names",
         type=str,
         nargs='+',
-        default=['robot0_eye_in_hand', 'frontview'],
+        default=['robot0_eye_in_hand', 'spaceview'],
         help="(optional) camera name(s) to use for image observations. Leave out to not use image observations.",
     )
 
