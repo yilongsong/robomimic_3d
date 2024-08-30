@@ -14,7 +14,7 @@ import robosuite
 from robosuite.utils.camera_utils import get_real_depth_map, get_camera_extrinsic_matrix, get_camera_intrinsic_matrix
 try:
     # this is needed for ensuring robosuite can find the additional mimicgen environments (see https://mimicgen.github.io)
-    import mimicgen_envs
+    import mimicgen
 except ImportError:
     pass
 
