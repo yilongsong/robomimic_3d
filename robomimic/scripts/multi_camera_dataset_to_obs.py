@@ -282,6 +282,7 @@ class Simulation():
     def generate_obs_for_dataset(self, output_file):
 
         env_meta = FileUtils.get_env_metadata_from_dataset(self.dataset_path)
+        print("DEBUG: Going to create env")
         env = EnvUtils.create_env_for_data_processing(
             env_meta=env_meta,
             camera_names=list(self.cameras.keys()), 
@@ -289,6 +290,7 @@ class Simulation():
             camera_width=84,
             reward_shaping=False,
         )
+        print("DEBUG: Finished creating env")
 
         # Add the depth ranges for the custom cameras
         for custom_camera_name in self.custom_camera_names:
@@ -409,9 +411,9 @@ class Simulation():
 
         # load the initial state
         env.reset()
-
         insert_index = find_index_to_add_camera(initial_state['model'], camera_string="<camera name=\"sideview")
 
+        print(initial_state['model'])
         for camera in self.custom_camera_names:
             new_cameras_xml = f'''\n    <camera mode="fixed" name="{camera}" pos="{array_to_string(self.cameras[camera]['pos'])}" quat="{array_to_string(self.cameras[camera]['quat'])}" />'''
             initial_state['model'] = initial_state['model'][:insert_index] + new_cameras_xml + initial_state['model'][insert_index:]
@@ -528,8 +530,6 @@ if __name__ == "__main__":
 
     sim = Simulation(args.dataset, args.env_xml)
     pos, quat = sim.generate_camera_pos_and_quat(args.num_cameras)
-
-    # print(f"Camera positions:\n{pos}")
     sim.add_cameras(
         pos=pos,
         quat=quat,

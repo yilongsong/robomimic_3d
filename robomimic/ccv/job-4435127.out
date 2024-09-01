@@ -1,0 +1,9 @@
+## SLURM PROLOG ###############################################################
+##    Job ID : 4435127
+##  Job Name : multi_camera_obs.sh
+##  Nodelist : node1320
+##      CPUs : 
+##   Mem/CPU : 3072 MB
+## Directory : /oscar/data/stellex/nharlalk/robomimic/robomimic/scripts
+##   Job Started : Sun Sep  1 05:39:34 PM EDT 2024
+###############################################################################
