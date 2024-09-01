@@ -1,10 +1,10 @@
 import h5py
-import os
 
 def main():
-    f_out = h5py.File("processed_data.hdf5", "w")
-    f_out.close()
-    f = h5py.File("processed_data.hdf5", "w")
+    f = h5py.File("coffee_data.hdf5", "w")
+
+    # Check the type of the data
+    print("The type of the data is:", type(f["data"]["demo_0"]["obs"]["camera0_rgbd"][0][0]))
 
 if __name__ == "__main__":
     main()
