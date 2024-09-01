@@ -70,15 +70,10 @@ def combine_quaternions(q1, q2):
     return np.array([w, x, y, z])
 
 class Simulation():
-    def __init__(self, datasets_path, env_xml_path):
+    def __init__(self, dataset_path, env_xml_path):
         self.env_xml_path = env_xml_path
 
-        # Load all .hdf5 files in the datasets folder
-        self.datasets = []
-        for root, dirs, files in os.walk(datasets_path):
-            for file in files:
-                if file.endswith(".hdf5"):
-                    self.datasets.append(os.path.join(root, file))
+        self.dataset_path = dataset_path
 
         self.cameras= {
             "frontview": {
@@ -284,10 +279,9 @@ class Simulation():
         with open(self.env_xml_path, "w") as f:
             f.write(self.old_xml)
 
-    def generate_obs_for_dataset(self, generated_dataset_path):
-        dataset = self.datasets[0]
-        print(dataset)
-        env_meta = FileUtils.get_env_metadata_from_dataset(dataset)
+    def generate_obs_for_dataset(self, output_file):
+
+        env_meta = FileUtils.get_env_metadata_from_dataset(self.dataset_path)
         env = EnvUtils.create_env_for_data_processing(
             env_meta=env_meta,
             camera_names=list(self.cameras.keys()), 
@@ -305,33 +299,27 @@ class Simulation():
 
         is_robosuite_env = EnvUtils.is_robosuite_env(env_meta)
 
-        f = h5py.File(dataset, "r")
+        f = h5py.File(self.dataset_path, "r")
 
         demos = list(f["data"].keys())
         inds = np.argsort([int(elem[5:]) for elem in demos])
         demos = [demos[i] for i in inds]
 
-        demos = demos[:1]
-
-        f_out = h5py.File(generated_dataset_path, "w")
-        data_group = f_out.create_group("data")
-        # if os.path.exists(generated_dataset_path):
-        #     f_out = h5py.File(generated_dataset_path, "r+")
-        #     data_group = f_out["data"]
-        # else:
-        #     f_out = h5py.File(generated_dataset_path, "w")
-        #     data_group = f_out.create_group("data")
-
-        # existing_demos = list(data_group.keys())
-        # last_demo = existing_demos[-1] if existing_demos else None
-
-        # if last_demo is not None:
-        #     start_ind = int(last_demo[5:]) + 1
-        # else:
-        #     start_ind = 0
+        # f_out = h5py.File(generated_dataset_path, "w")
+        # data_group = f_out.create_group("data")
+        if os.path.exists(output_file):
+            f_out = h5py.File(output_file, "r+")
+            data_group = f_out["data"]
+            start_ind = len(data_group.keys())
+        else:
+            f_out = h5py.File(output_file, "w+")
+            data_group = f_out.create_group("data")
+            start_ind = 0
+        
+        demos = demos[:start_ind + 1]
 
         total_samples = 0
-        for ind in range(len(demos)):
+        for ind in range(start_ind, len(demos)):
             ep = demos[ind]
 
             states = f["data/{}/states".format(ep)][()]
@@ -390,7 +378,7 @@ class Simulation():
         # global metadata
         data_group.attrs["total"] = total_samples
         data_group.attrs["env_args"] = json.dumps(env.serialize(), indent=4) # environment info
-        print("Wrote {} trajectories to {}".format(len(demos), "processed_data.hdf5"))
+        print("Wrote {} trajectories to {}".format(len(demos), output_file))
 
         f.close()
         f_out.close()
@@ -516,25 +504,39 @@ if __name__ == "__main__":
         "--dataset",
         type=str,
         help="path to hdf5 dataset",
-        default="processed_data_84.hdf5"
+        default="/users/nharlalk/data/shared/mimicgen/core/pick_place_d0.hdf5"
     )
+    parser.add_argument(
+        "--num_cameras",
+        type=int,
+        default=5,
+        help="number of cameras to add to the simulation"
+    )
+    parser.add_argument(
+        "--env_xml",
+        type=str,
+        help="path to the environment xml file"
+    )
+    parser.add_argument(
+        "--output_file",
+        type=str,
+        default="multicamera_pick_place_d0.hdf5",
+        help="path to the output file"
+    )
+
     args = parser.parse_args()
 
-    num_custom_cameras = 5
+    sim = Simulation(args.dataset, args.env_xml)
+    pos, quat = sim.generate_camera_pos_and_quat(args.num_cameras)
 
-    env_xml_path = os.environ.get("ENV_XML_PATH")
-    dataset_folder = os.environ.get("ROBOT_DATASETS_DIR")
-    sim = Simulation(dataset_folder, env_xml_path)
-    pos, quat = sim.generate_camera_pos_and_quat(num_custom_cameras)
-
-    print(f"Camera positions:\n{pos}")
+    # print(f"Camera positions:\n{pos}")
     sim.add_cameras(
         pos=pos,
         quat=quat,
-        name=[f"camera{i}" for i in range(num_custom_cameras)]
+        name=[f"camera{i}" for i in range(args.num_cameras)]
     )
     try:
-        sim.generate_obs_for_dataset(generated_dataset_path=args.dataset)
+        sim.generate_obs_for_dataset(output_file=args.output_file)
         # sim.visualize_camera_views()
     except Exception as e:
         print(e)
