@@ -1,0 +1,40 @@
+## SLURM PROLOG ###############################################################
+##    Job ID : 4372557
+##  Job Name : multi_camera_obs.sh
+##  Nodelist : node1318
+##      CPUs : 
+##   Mem/CPU : 3072 MB
+## Directory : /oscar/data/stellex/nharlalk/robomimic/robomimic/scripts
+##   Job Started : Wed Aug 28 10:39:37 EDT 2024
+###############################################################################
+ROBOMIMIC WARNING(
+    No private macro file found!
+    It is recommended to use a private macro file
+    To setup, run: python /users/nharlalk/data/nharlalk/robomimic/robomimic/scripts/setup_macros.py
+)
+Generated 5 camera positions on the sphere.
+Origin: 
+[array([-0.31819805,  0.31819805,  0.75057714]), array([-0.38971143, -0.225     ,  0.75057714]), array([ 0.11646857, -0.43466662,  0.75057714]), array([-0.34472992,  0.69904312,  1.08      ]), array([-0.77275479,  0.1017351 ,  1.08      ])]
+Camera positions:
+[[ 0.6363961  -0.6363961   1.55884573]
+ [ 0.77942286  0.45        1.55884573]
+ [-0.23293714  0.86933324  1.55884573]
+ [ 0.68945983 -1.39808624  0.9       ]
+ [ 1.54550959 -0.2034702   0.9       ]]
+/users/nharlalk/data/shared/mimicgen/core/coffee_d0.hdf5
+Warning: make sure gym is installed if you want to use the GymWrapper.
+WARNING: robosuite task zoo environments not imported, possibly because robosuite_task_zoo is not installed...
+Got error: No module named 'robosuite_task_zoo'
+WARNING: robosuite task zoo environments not imported since robosuite task zoo is not installed!
+
+============= Initialized Observation Utils with Obs Spec =============
+
+using obs modality: low_dim with keys: []
+using obs modality: rgb with keys: ['birdview_image', 'frontview_image', 'agentview_image', 'camera2_image', 'camera4_image', 'camera1_image', 'camera3_image', 'sideview_image', 'camera0_image']
+using obs modality: depth with keys: ['camera3_depth', 'camera2_depth', 'sideview_depth', 'frontview_depth', 'camera4_depth', 'birdview_depth', 'agentview_depth', 'camera0_depth', 'camera1_depth']
+ep 0: wrote 227 transitions to group demo_0
+ep 1: wrote 219 transitions to group demo_1
+ep 2: wrote 217 transitions to group demo_2
+ep 3: wrote 211 transitions to group demo_3
+ep 4: wrote 211 transitions to group demo_4
+Wrote 5 trajectories to processed_data.hdf5

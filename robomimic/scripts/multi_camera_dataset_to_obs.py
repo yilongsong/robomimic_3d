@@ -291,8 +291,8 @@ class Simulation():
         env = EnvUtils.create_env_for_data_processing(
             env_meta=env_meta,
             camera_names=list(self.cameras.keys()), 
-            camera_height=128, 
-            camera_width=128,
+            camera_height=84, 
+            camera_width=84,
             reward_shaping=False,
         )
 
@@ -311,7 +311,7 @@ class Simulation():
         inds = np.argsort([int(elem[5:]) for elem in demos])
         demos = [demos[i] for i in inds]
 
-        demos = demos[:2]
+        demos = demos[:1]
 
         f_out = h5py.File(generated_dataset_path, "w")
         data_group = f_out.create_group("data")
@@ -516,7 +516,7 @@ if __name__ == "__main__":
         "--dataset",
         type=str,
         help="path to hdf5 dataset",
-        default="processed_data.hdf5"
+        default="processed_data_84.hdf5"
     )
     args = parser.parse_args()
 

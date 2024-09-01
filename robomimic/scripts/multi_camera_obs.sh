@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH -o job-%j.out
-#SBATCH -e job-%j.err
+#SBATCH -o ../ccv/job-%j.out
+#SBATCH -e ../ccv/job-%j.err
 #SBATCH --time=1:00:00
 
 #SBATCH --nodes=1
@@ -16,4 +16,3 @@ source /oscar/runtime/software/external/miniconda3/23.11.0/etc/profile.d/conda.s
 conda activate cam-env
 
 python multi_camera_dataset_to_obs.py
-#python test.py
