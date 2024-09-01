@@ -91,6 +91,7 @@ if __name__ == "__main__":
     print("traj length max: {}".format(np.max(traj_lengths)))
     print("action min: {}".format(action_min))
     print("action max: {}".format(action_max))
+    print("number of demos: {}".format(len(demos)))
     print("")
     print("==== Filter Keys ====")
     if all_filter_keys is not None:
