@@ -576,7 +576,7 @@ def process_frame(frame, channel_dim, scale):
     Args:
         frame (np.array or torch.Tensor): frame array
         channel_dim (int): Number of channels to sanity check for
-        scale (float): Value to normalize inputs by
+        scale (float or None): Value to normalize inputs by
 
     Returns:
         processed_frame (np.array or torch.Tensor): processed frame
@@ -584,8 +584,9 @@ def process_frame(frame, channel_dim, scale):
     # Channel size should either be 3 (RGB) or 1 (depth)
     assert (frame.shape[-1] == channel_dim)
     frame = TU.to_float(frame)
-    frame = frame / scale
-    frame = frame.clip(0.0, 1.0)
+    if scale is not None:
+        frame = frame / scale
+        frame = frame.clip(0.0, 1.0)
     frame = batch_image_hwc_to_chw(frame)
 
     return frame
@@ -638,7 +639,7 @@ def unprocess_frame(frame, channel_dim, scale):
     Args:
         frame (np.array or torch.Tensor): frame array
         channel_dim (int): What channel dimension should be (used for sanity check)
-        scale (float): Scaling factor to apply during denormalization
+        scale (float or None): Scaling factor to apply during denormalization
 
     Returns:
         unprocessed_frame (np.array or torch.Tensor): frame passed through
@@ -646,7 +647,8 @@ def unprocess_frame(frame, channel_dim, scale):
     """
     assert frame.shape[-3] == channel_dim # check for channel dimension
     frame = batch_image_chw_to_hwc(frame)
-    frame = frame * scale
+    if scale is not None:
+        frame = scale * frame
     return frame
 
 
@@ -1151,10 +1153,34 @@ class ScanModality(Modality):
 
     @classmethod
     def _default_obs_processor(cls, obs):
+        # Channel swaps ([...,] L, C) --> ([...,] C, L)
+        
+        # First, add extra dimension at 2nd to last index to treat this as a frame
+        shape = obs.shape
+        new_shape = [*shape[:-2], 1, *shape[-2:]]
+        obs = obs.reshape(new_shape)
+        
+        # Convert shape
+        obs = batch_image_hwc_to_chw(obs)
+        
+        # Remove extra dimension (it's the second from last dimension)
+        obs = obs.squeeze(-2)
         return obs
 
     @classmethod
     def _default_obs_unprocessor(cls, obs):
+        # Channel swaps ([B,] C, L) --> ([B,] L, C)
+        
+        # First, add extra dimension at 1st index to treat this as a frame
+        shape = obs.shape
+        new_shape = [*shape[:-2], 1, *shape[-2:]]
+        obs = obs.reshape(new_shape)
+
+        # Convert shape
+        obs = batch_image_chw_to_hwc(obs)
+
+        # Remove extra dimension (it's the second from last dimension)
+        obs = obs.squeeze(-2)
         return obs
 
 

@@ -11,6 +11,8 @@ import torch
 import torch.nn.functional as F
 
 import robosuite
+
+import robosuite.utils.transform_utils as T
 from robosuite.utils.camera_utils import get_real_depth_map, get_camera_extrinsic_matrix, get_camera_intrinsic_matrix
 try:
     # this is needed for ensuring robosuite can find the additional mimicgen environments (see https://mimicgen.github.io)
@@ -71,6 +73,7 @@ class EnvRobosuite(EB.EnvBase):
         render=False, 
         render_offscreen=False, 
         use_image_obs=False, 
+        use_depth_obs=False, 
         postprocess_visual_obs=True, 
         **kwargs,
     ):
@@ -88,11 +91,16 @@ class EnvRobosuite(EB.EnvBase):
                 on every env.step call. Set this to False for efficiency reasons, if image
                 observations are not required.
 
+            use_depth_obs (bool): if True, environment is expected to render depth image observations
+                on every env.step call. Set this to False for efficiency reasons, if depth
+                observations are not required.
+
             postprocess_visual_obs (bool): if True, postprocess image observations
                 to prepare for learning. This should only be False when extracting observations
                 for saving to a dataset (to save space on RGB images for example).
         """
         self.postprocess_visual_obs = postprocess_visual_obs
+        self.use_depth_obs = use_depth_obs
 
         # robosuite version check
         self._is_v1 = (robosuite.__version__.split(".")[0] == "1")
@@ -126,7 +134,7 @@ class EnvRobosuite(EB.EnvBase):
             # make sure gripper visualization is turned off (we almost always want this for learning)
             kwargs["gripper_visualization"] = False
             del kwargs["camera_depths"]
-            kwargs["camera_depth"] = True # rename kwarg
+            kwargs["camera_depth"] = use_depth_obs # rename kwarg
 
         self._env_name = env_name
         self._init_kwargs = deepcopy(kwargs)
@@ -223,7 +231,11 @@ class EnvRobosuite(EB.EnvBase):
             self.env.viewer.set_camera(cam_id)
             return self.env.render()
         elif mode == "rgb_array":
-            return self.env.sim.render(height=height, width=width, camera_name=camera_name)[::-1]
+            im = self.env.sim.render(height=height, width=width, camera_name=camera_name)
+            if self.use_depth_obs:
+                # render() returns a tuple when self.use_depth_obs=True
+                return im[0][::-1]
+            return im[::-1]
         else:
             raise NotImplementedError("mode={} is not implemented".format(mode))
 
@@ -240,6 +252,7 @@ class EnvRobosuite(EB.EnvBase):
         ret = {}
         for k in di:
             if (k in ObsUtils.OBS_KEYS_TO_MODALITIES) and ObsUtils.key_is_obs_modality(key=k, obs_modality="rgb"):
+                # by default images from mujoco are flipped in height
                 ret[k] = di[k][::-1]
                 if self.postprocess_visual_obs:
                     ret[k] = ObsUtils.process_obs(obs=ret[k], obs_key=k)
@@ -249,6 +262,7 @@ class EnvRobosuite(EB.EnvBase):
                 ret[k] = discretize_depth(ret[k], k)
                 if self.postprocess_visual_obs:
                     ret[k] = ObsUtils.process_obs(obs=ret[k], obs_key=k)
+                    # ret[k] = undiscretize_depth(ret[k], k)
 
         
         
@@ -383,6 +397,80 @@ class EnvRobosuite(EB.EnvBase):
             ret["gripper_qpos"] = np.array(di["gripper_qpos"])
         return ret
 
+    def get_real_depth_map(self, depth_map):
+        """
+        Reproduced from https://github.com/ARISE-Initiative/robosuite/blob/c57e282553a4f42378f2635b9a3cbc4afba270fd/robosuite/utils/camera_utils.py#L106
+        since older versions of robosuite do not have this conversion from normalized depth values returned by MuJoCo
+        to real depth values.
+        """
+        # Make sure that depth values are normalized
+        assert np.all(depth_map >= 0.0) and np.all(depth_map <= 1.0)
+        extent = self.env.sim.model.stat.extent
+        far = self.env.sim.model.vis.map.zfar * extent
+        near = self.env.sim.model.vis.map.znear * extent
+        return near / (1.0 - depth_map * (1.0 - near / far))
+
+    def get_camera_intrinsic_matrix(self, camera_name, camera_height, camera_width):
+        """
+        Obtains camera intrinsic matrix.
+        Args:
+            camera_name (str): name of camera
+            camera_height (int): height of camera images in pixels
+            camera_width (int): width of camera images in pixels
+        Return:
+            K (np.array): 3x3 camera matrix
+        """
+        cam_id = self.env.sim.model.camera_name2id(camera_name)
+        fovy = self.env.sim.model.cam_fovy[cam_id]
+        f = 0.5 * camera_height / np.tan(fovy * np.pi / 360)
+        K = np.array([[f, 0, camera_width / 2], [0, f, camera_height / 2], [0, 0, 1]])
+        return K
+
+    def get_camera_extrinsic_matrix(self, camera_name):
+        """
+        Returns a 4x4 homogenous matrix corresponding to the camera pose in the
+        world frame. MuJoCo has a weird convention for how it sets up the
+        camera body axis, so we also apply a correction so that the x and y
+        axis are along the camera view and the z axis points along the
+        viewpoint.
+        Normal camera convention: https://docs.opencv.org/2.4/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
+        Args:
+            camera_name (str): name of camera
+        Return:
+            R (np.array): 4x4 camera extrinsic matrix
+        """
+        cam_id = self.env.sim.model.camera_name2id(camera_name)
+        camera_pos = self.env.sim.data.cam_xpos[cam_id]
+        camera_rot = self.env.sim.data.cam_xmat[cam_id].reshape(3, 3)
+        R = T.make_pose(camera_pos, camera_rot)
+
+        # IMPORTANT! This is a correction so that the camera axis is set up along the viewpoint correctly.
+        camera_axis_correction = np.array(
+            [[1.0, 0.0, 0.0, 0.0], [0.0, -1.0, 0.0, 0.0], [0.0, 0.0, -1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
+        )
+        R = R @ camera_axis_correction
+        return R
+
+    def get_camera_transform_matrix(self, camera_name, camera_height, camera_width):
+        """
+        Camera transform matrix to project from world coordinates to pixel coordinates.
+        Args:
+            camera_name (str): name of camera
+            camera_height (int): height of camera images in pixels
+            camera_width (int): width of camera images in pixels
+        Return:
+            K (np.array): 4x4 camera matrix to project from world coordinates to pixel coordinates
+        """
+        R = self.get_camera_extrinsic_matrix(camera_name=camera_name)
+        K = self.get_camera_intrinsic_matrix(
+            camera_name=camera_name, camera_height=camera_height, camera_width=camera_width
+        )
+        K_exp = np.eye(4)
+        K_exp[:3, :3] = K
+
+        # Takes a point in world, transforms to camera frame, and then projects onto image plane.
+        return K_exp @ T.pose_inv(R)
+
     def get_state(self):
         """
         Get current environment simulator state as a dictionary. Should be compatible with @reset_to.
@@ -479,6 +567,10 @@ class EnvRobosuite(EB.EnvBase):
         camera_height, 
         camera_width, 
         reward_shaping, 
+        render=None, 
+        render_offscreen=None, 
+        use_image_obs=None, 
+        use_depth_obs=None, 
         **kwargs,
     ):
         """
@@ -492,6 +584,12 @@ class EnvRobosuite(EB.EnvBase):
             camera_height (int): camera height for all cameras
             camera_width (int): camera width for all cameras
             reward_shaping (bool): if True, use shaped environment rewards, else use sparse task completion rewards
+            render (bool or None): optionally override rendering behavior. Defaults to False.
+            render_offscreen (bool or None): optionally override rendering behavior. The default value is True if
+                @camera_names is non-empty, False otherwise.
+            use_image_obs (bool or None): optionally override rendering behavior. The default value is True if
+                @camera_names is non-empty, False otherwise.
+            use_depth_obs (bool): if True, use depth observations
         """
         is_v1 = (robosuite.__version__.split(".")[0] == "1")
         has_camera = (len(camera_names) > 0)
@@ -516,13 +614,15 @@ class EnvRobosuite(EB.EnvBase):
 
         # also initialize obs utils so it knows which modalities are image modalities
         image_modalities = list(camera_names)
+        depth_modalities = list(camera_names)
         if is_v1:
             image_modalities = ["{}_image".format(cn) for cn in camera_names]
             depth_modalities = ["{}_depth".format(cn) for cn in camera_names]
         elif has_camera:
-            # v0.3 only had support for one image, and it was named "rgb"
+            # v0.3 only had support for one image, and it was named "image"
             assert len(image_modalities) == 1
-            image_modalities = ["rgb"]
+            image_modalities = ["image"]
+            depth_modalities = ["depth"]
         obs_modality_specs = {
             "obs": {
                 "low_dim": [], # technically unused, so we don't have to specify all of them
@@ -530,14 +630,17 @@ class EnvRobosuite(EB.EnvBase):
                 "depth": depth_modalities,
             }
         }
+        if use_depth_obs:
+            obs_modality_specs["obs"]["depth"] = depth_modalities
         ObsUtils.initialize_obs_utils_with_obs_specs(obs_modality_specs)
 
         # note that @postprocess_visual_obs is False since this env's images will be written to a dataset
         return cls(
             env_name=env_name,
-            render=True, 
-            render_offscreen=has_camera, 
-            use_image_obs=has_camera, 
+            render=(False if render is None else render), 
+            render_offscreen=(has_camera if render_offscreen is None else render_offscreen), 
+            use_image_obs=(has_camera if use_image_obs is None else use_image_obs), 
+            use_depth_obs=use_depth_obs,
             postprocess_visual_obs=False,
             **kwargs,
         )
@@ -550,6 +653,13 @@ class EnvRobosuite(EB.EnvBase):
         simulation computations.
         """
         return tuple(MUJOCO_EXCEPTIONS)
+
+    @property
+    def base_env(self):
+        """
+        Grabs base simulation environment.
+        """
+        return self.env
 
     def __repr__(self):
         """
