@@ -142,12 +142,11 @@ def crop_and_pad_batch(images, bb_centers, output_size):
 
 def depth2fgpcd(depth, camera_intrinsic):
     # depth: (n, h, w)
-    # fgpcd: (m, n, 3)
-    # mask: (n, h, w)
+    # fgpcd: (n, h*w, 3)
     n, h, w = depth.shape
     # mask = (depth <= 0.599/0.8)
     fgpcd = np.zeros((n, h*w, 3))
-    fx, fy, cx, cy = camera_intrinsic[0,0], camera_intrinsic[1,1], camera_intrinsic[0,-1], camera_intrinsic[1,-1]
+    fx, fy, cx, cy = camera_intrinsic[0,0], camera_intrinsic[1,1], camera_intrinsic[0,2], camera_intrinsic[1,2]
     pos_x, pos_y = np.meshgrid(np.arange(w), np.arange(h))
     pos_x, pos_y = pos_x[None, ...], pos_y[None, ...]
     fgpcd[:, :, 0] = ((pos_x - cx) * depth / fx).reshape(n, -1)
@@ -234,18 +233,18 @@ def convert_sideview_to_gripper_batch(sim, images, goal_key, robot0_eef_pos, cam
     depth_range = 0.35
     rgbd_normalization = True
     raw_image = images.copy().astype(float)
+
+
     if 'rgbd' in goal_key:
         raw_image[...,3] = undiscretize_depth(raw_image[...,3], goal_key.split('_')[0]+'_depth')
 
+    if 'rgbd' in goal_key and rgbd_normalization:
+        raw_image = clip_depth_alone_gripper_x_batch(raw_image, robot0_eef_pos, intrinsic, extrinsic, x_range=depth_range)
     
     bbox_centers = xyz_to_bbox_center_batch(robot0_eef_pos, intrinsic, extrinsic)
     bbox_center_in_image = np.clip(bbox_centers, 0, np.array([h,w]))
     if not (bbox_center_in_image == bbox_centers).all():
         print("WARNING: End-effector center is not in observation. Trying clipping.")
-
-    if 'rgbd' in goal_key and rgbd_normalization:
-        raw_image = clip_depth_alone_gripper_x_batch(raw_image, robot0_eef_pos, intrinsic, extrinsic, x_range=depth_range)
-        
 
     gripper_centered_current_obs = crop_and_pad_batch(raw_image, bbox_center_in_image, output_size=bbox_size)
     return F.interpolate(torch.from_numpy(gripper_centered_current_obs.astype(np.uint8)).permute(0, 3, 1, 2), (h, w), mode='bilinear').permute(0, 2, 3, 1).numpy()
