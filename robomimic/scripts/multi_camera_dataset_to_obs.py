@@ -46,7 +46,7 @@ def visualize_points_on_sphere(points, radius):
 
     ax.plot_surface(x, y, z, color='b', alpha=0.1)
 
-    plt.show()
+    plt.savefig('camera_positions_on_sphere.png')
 
 def get_angle_from_sin_cos(sin, cos):
     if sin >= 0 and cos >= 0:
@@ -262,7 +262,6 @@ class Simulation():
         with open(self.env_xml_path, "w") as f:
             f.write(xml)
 
-
         for i in range(len(pos)):
             self.cameras[name[i]] = dict(
                 pos=pos[i],
@@ -276,11 +275,12 @@ class Simulation():
         with open(self.env_xml_path, "w") as f:
             f.write(self.old_xml)
 
-    def generate_obs_for_dataset(self, output_file):
+    def generate_obs_for_dataset(self, output_file, num_demos):
 
         env_meta = FileUtils.get_env_metadata_from_dataset(self.dataset_path)
+        
         print("DEBUG: Going to create env")
-        print(self.cameras.keys())
+
         env = EnvUtils.create_env_for_data_processing(
             env_meta=env_meta,
             camera_names=list(self.cameras.keys()), 
@@ -316,7 +316,7 @@ class Simulation():
             data_group = f_out.create_group("data")
             start_ind = 0
         
-        demos = demos[:start_ind + 1]
+        demos = demos[:start_ind + num_demos]
 
         total_samples = 0
         for ind in range(start_ind, len(demos)):
@@ -409,9 +409,10 @@ class Simulation():
 
         # load the initial state
         env.reset()
+        print("DEBUG: Initial state model")
+        print(initial_state['model'])
         insert_index = find_index_to_add_camera(initial_state['model'], camera_string="<camera name=\"sideview")
 
-        print(initial_state['model'])
         for camera in self.custom_camera_names:
             new_cameras_xml = f'''\n    <camera mode="fixed" name="{camera}" pos="{array_to_string(self.cameras[camera]['pos'])}" quat="{array_to_string(self.cameras[camera]['quat'])}" />'''
             initial_state['model'] = initial_state['model'][:insert_index] + new_cameras_xml + initial_state['model'][insert_index:]
@@ -523,18 +524,28 @@ if __name__ == "__main__":
         default="multicamera_pick_place_d0.hdf5",
         help="path to the output file"
     )
+    parser.add_argument(
+        "--num_demos",
+        type=int,
+        default=1,
+        help="number of demos to process"
+    )
 
     args = parser.parse_args()
 
     sim = Simulation(args.dataset, args.env_xml)
     pos, quat = sim.generate_camera_pos_and_quat(args.num_cameras)
+
+    # Visualize points on sphere
+    visualize_points_on_sphere(pos, sim.camera_sphere_radius)
+
     sim.add_cameras(
         pos=pos,
         quat=quat,
         name=[f"camera{i}" for i in range(args.num_cameras)]
     )
     try:
-        sim.generate_obs_for_dataset(output_file=args.output_file)
+        sim.generate_obs_for_dataset(args.output_file, args.num_demos)
         # sim.visualize_camera_views()
     except Exception as e:
         print(e)
