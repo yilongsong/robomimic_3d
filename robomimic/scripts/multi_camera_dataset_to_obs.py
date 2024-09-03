@@ -49,7 +49,7 @@ def visualize_points_on_sphere(points, radius):
 
     ax.plot_surface(x, y, z, color='b', alpha=0.1)
 
-    plt.savefig('camera_positions_on_sphere.png')
+    plt.savefig('camera_positions_on_sphere_2.png')
 
 def get_angle_from_sin_cos(sin, cos):
     if sin >= 0 and cos >= 0:
@@ -108,8 +108,8 @@ class Simulation():
         # Adjustable parameters
         theta_max_angle = np.pi / 3
         theta_adjustment = 0.0
-        phi_max_angle = 5 * np.pi / 4
-        phi_adjustment = 2 * np.pi / 3
+        phi_max_angle = 3 * np.pi / 2
+        phi_adjustment = 5 * np.pi / 6
 
         # Derived parameters
         m_theta = int(np.round(np.sqrt(num_points)))
@@ -124,7 +124,7 @@ class Simulation():
             # Adjust the number of points in the phi direction based on theta. 
             # Adding 0.7 to the sin(theta) term since not using 0 angle and 
             # want to make up the difference between num_points and m_theta^2
-            m_phi = int(np.round(np.sqrt(num_points) * (np.sin(theta) + 0.7) ))
+            m_phi = int(np.round(np.sqrt(num_points) * (np.sin(theta) + 0.5) ))
 
             for n in range(1, m_phi + 1):
                 if n_count >= num_points:
@@ -539,6 +539,8 @@ if __name__ == "__main__":
 
     # Visualize points on sphere
     visualize_points_on_sphere(pos, sim.camera_sphere_radius)
+
+    exit()
 
     sim.add_cameras(
         pos=pos,
