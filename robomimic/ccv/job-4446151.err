@@ -1,0 +1,40 @@
+[robosuite WARNING] No private macro file found! (macros.py:53)
+[robosuite WARNING] It is recommended to use a private macro file (macros.py:54)
+[robosuite WARNING] To setup, run: python /users/nharlalk/data/nharlalk/robosuite/robosuite/scripts/setup_macros.py (macros.py:55)
+Exception ignored in: <function MjRenderContext.__del__ at 0x7fe2b6267d80>
+Traceback (most recent call last):
+  File "/users/nharlalk/data/nharlalk/robosuite/robosuite/utils/binding_utils.py", line 199, in __del__
+    self.gl_ctx.free()
+  File "/users/nharlalk/data/nharlalk/robosuite/robosuite/renderers/context/egl_context.py", line 150, in free
+    EGL.eglDestroyContext(EGL_DISPLAY, self._context)
+  File "/users/nharlalk/data/nharlalk/envs/cam-env/lib/python3.11/site-packages/OpenGL/platform/baseplatform.py", line 415, in __call__
+    return self( *args, **named )
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/users/nharlalk/data/nharlalk/envs/cam-env/lib/python3.11/site-packages/OpenGL/error.py", line 230, in glCheckError
+    raise self._errorClass(
+OpenGL.raw.EGL._errors.EGLError: EGLError(
+	err = EGL_NOT_INITIALIZED,
+	baseOperation = eglDestroyContext,
+	cArguments = (
+		<OpenGL._opaque.EGLDisplay_pointer object at 0x7fe2a6edc950>,
+		<OpenGL._opaque.EGLContext_pointer object at 0x7fe2a6edcef0>,
+	),
+	result = 0
+)
+Exception ignored in: <function EGLGLContext.__del__ at 0x7fe2b6267c40>
+Traceback (most recent call last):
+  File "/users/nharlalk/data/nharlalk/robosuite/robosuite/renderers/context/egl_context.py", line 155, in __del__
+    self.free()
+  File "/users/nharlalk/data/nharlalk/robosuite/robosuite/renderers/context/egl_context.py", line 150, in free
+    EGL.eglDestroyContext(EGL_DISPLAY, self._context)
+  File "/users/nharlalk/data/nharlalk/envs/cam-env/lib/python3.11/site-packages/OpenGL/error.py", line 230, in glCheckError
+    raise self._errorClass(
+OpenGL.raw.EGL._errors.EGLError: EGLError(
+	err = EGL_NOT_INITIALIZED,
+	baseOperation = eglDestroyContext,
+	cArguments = (
+		<OpenGL._opaque.EGLDisplay_pointer object at 0x7fe2a6edc950>,
+		<OpenGL._opaque.EGLContext_pointer object at 0x7fe2a6edcef0>,
+	),
+	result = 0
+)

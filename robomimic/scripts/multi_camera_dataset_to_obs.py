@@ -87,10 +87,6 @@ class Simulation():
             "agentview": {
                 "pos": np.array([0.5, 0, 1.35]),
                 "quat": np.array([0.653, 0.271, 0.271, 0.653])
-            },
-            "sideview": {
-                "pos": np.array([0., 1.27612, 1.5]),
-                "quat": np.array([0.00990, 0.00687, 0.59122, 0.80641])
             }
         }
 
@@ -259,12 +255,13 @@ class Simulation():
         index = find_index_to_add_camera(xml)
         for i in range(len(pos)):
             xml = xml[:index] + \
-                f'\n    <camera mode="fixed" name="{name[i]}" pos="{pos_string[i]}" quat="{quat_string[i]}" />' + \
+                f'\n    <camera mode="fixed" name="{name[i]}" pos="{pos_string[i]}" quat="{quat_string[i]}"/>' + \
                 xml[index:]
         
         # Save xml
         with open(self.env_xml_path, "w") as f:
             f.write(xml)
+
 
         for i in range(len(pos)):
             self.cameras[name[i]] = dict(
@@ -283,6 +280,7 @@ class Simulation():
 
         env_meta = FileUtils.get_env_metadata_from_dataset(self.dataset_path)
         print("DEBUG: Going to create env")
+        print(self.cameras.keys())
         env = EnvUtils.create_env_for_data_processing(
             env_meta=env_meta,
             camera_names=list(self.cameras.keys()), 
@@ -314,7 +312,7 @@ class Simulation():
             data_group = f_out["data"]
             start_ind = len(data_group.keys())
         else:
-            f_out = h5py.File(output_file, "w+")
+            f_out = h5py.File(output_file, "w")
             data_group = f_out.create_group("data")
             start_ind = 0
         

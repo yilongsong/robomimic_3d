@@ -1,0 +1,107 @@
+## SLURM PROLOG ###############################################################
+##    Job ID : 4446250
+##  Job Name : multi_camera_obs.sh
+##  Nodelist : node1326
+##      CPUs : 
+##   Mem/CPU : 3072 MB
+## Directory : /oscar/data/stellex/nharlalk/robomimic/robomimic/scripts
+##   Job Started : Mon Sep  2 05:38:42 PM EDT 2024
+###############################################################################
+ROBOMIMIC WARNING(
+    No private macro file found!
+    It is recommended to use a private macro file
+    To setup, run: python /users/nharlalk/data/nharlalk/robomimic/robomimic/scripts/setup_macros.py
+)
+Generated 5 camera positions on the sphere.
+Origin: 
+[array([-0.31819805,  0.31819805,  0.75057714]), array([-0.38971143, -0.225     ,  0.75057714]), array([ 0.11646857, -0.43466662,  0.75057714]), array([-0.34472992,  0.69904312,  1.08      ]), array([-0.77275479,  0.1017351 ,  1.08      ])]
+DEBUG: Going to create env
+{'frontview': {'pos': array([1.6 , 0.  , 1.45]), 'quat': array([0.56, 0.43, 0.43, 0.56])}, 'birdview': {'pos': array([-0.2,  0. ,  3. ]), 'quat': array([0.7071, 0.    , 0.    , 0.7071])}, 'agentview': {'pos': array([0.5 , 0.  , 1.35]), 'quat': array([0.653, 0.271, 0.271, 0.653])}, 'sideview': {'pos': array([0.     , 1.27612, 1.5    ]), 'quat': array([0.0099 , 0.00687, 0.59122, 0.80641])}, 'camera0': {'pos': array([ 0.6363961 , -0.6363961 ,  1.55884573]), 'quat': array([0.80374504, 0.39087212, 0.16190454, 0.3329221 ])}, 'camera1': {'pos': array([0.77942286, 0.45      , 1.55884573]), 'quat': array([0.43498368, 0.21153847, 0.36639538, 0.75341384])}, 'camera2': {'pos': array([-0.23293714,  0.86933324,  1.55884573]), 'quat': array([-0.11355353, -0.05522262,  0.41945746,  0.86252467])}, 'camera3': {'pos': array([ 0.68945983, -1.39808624,  0.9       ]), 'quat': array([0.66168009, 0.71246599, 0.16612377, 0.15428216])}, 'camera4': {'pos': array([ 1.54550959, -0.2034702 ,  0.9       ]), 'quat': array([0.51082163, 0.5500287 , 0.48236223, 0.44797855])}}
+['camera0', 'camera1', 'camera2', 'camera3', 'camera4']
+Warning: make sure gym is installed if you want to use the GymWrapper.
+WARNING: robosuite task zoo environments not imported, possibly because robosuite_task_zoo is not installed...
+Got error: No module named 'robosuite_task_zoo'
+WARNING: robosuite task zoo environments not imported since robosuite task zoo is not installed!
+
+============= Initialized Observation Utils with Obs Spec =============
+
+using obs modality: low_dim with keys: []
+using obs modality: rgb with keys: ['camera2_image', 'camera0_image', 'sideview_image', 'birdview_image', 'camera3_image', 'agentview_image', 'frontview_image', 'camera1_image', 'camera4_image']
+using obs modality: depth with keys: ['camera1_depth', 'sideview_depth', 'camera2_depth', 'camera4_depth', 'camera3_depth', 'frontview_depth', 'agentview_depth', 'birdview_depth', 'camera0_depth']
+DEBUG: Going to make robosuite env
+DEBUG: Began creating the mujoco environment.
+DEBUG: Finsihed creating model in mujoco env
+DEBUG: Finished creating sim in mujoco env
+DEBUG: Finished renderer init in mujoco env
+DEBUG: Done resetting internals in mujoco env
+DEBUG: Sensor name: robot0_joint_pos
+DEBUG: Got data shape:  (7,)
+DEBUG: Sensor name: robot0_joint_pos_cos
+DEBUG: Got data shape:  (7,)
+DEBUG: Sensor name: robot0_joint_pos_sin
+DEBUG: Got data shape:  (7,)
+DEBUG: Sensor name: robot0_joint_vel
+DEBUG: Got data shape:  (7,)
+DEBUG: Sensor name: robot0_eef_pos
+DEBUG: Got data shape:  (3,)
+DEBUG: Sensor name: robot0_eef_quat
+DEBUG: Got data shape:  (4,)
+DEBUG: Sensor name: robot0_eef_vel_lin
+DEBUG: Got data shape:  (3,)
+DEBUG: Sensor name: robot0_eef_vel_ang
+DEBUG: Got data shape:  (3,)
+DEBUG: Sensor name: robot0_gripper_qpos
+DEBUG: Got data shape:  (2,)
+DEBUG: Sensor name: robot0_gripper_qvel
+DEBUG: Got data shape:  (2,)
+DEBUG: Information for each observable before creation:
+Name: frontview_image
+Sensor: <function RobotEnv._create_camera_sensors.<locals>.camera_rgb at 0x7f14ade6ed40>
+DEBUG: Sensor name: frontview_image
+DEBUG: camera_rgb Before render
+DEBUG: camera_rgb after render
+DEBUG: camera_rgb cam_d
+DEBUG: camera_rgb before accessing obs_cache
+DEBUG: camera_rgb after obs_cache
+DEBUG: Got data shape:  (84, 84, 3)
+DEBUG: Information for each observable before creation:
+Name: frontview_depth
+Sensor: <function RobotEnv._create_camera_sensors.<locals>.camera_depth at 0x7f14ade6ede0>
+DEBUG: Sensor name: frontview_depth
+DEBUG: Got data shape:  (84, 84, 1)
+DEBUG: Information for each observable before creation:
+Name: birdview_image
+Sensor: <function RobotEnv._create_camera_sensors.<locals>.camera_rgb at 0x7f14ade6ee80>
+DEBUG: Sensor name: birdview_image
+DEBUG: camera_rgb Before render
+DEBUG: camera_rgb after render
+DEBUG: camera_rgb cam_d
+DEBUG: camera_rgb before accessing obs_cache
+DEBUG: camera_rgb after obs_cache
+DEBUG: Got data shape:  (84, 84, 3)
+DEBUG: Information for each observable before creation:
+Name: birdview_depth
+Sensor: <function RobotEnv._create_camera_sensors.<locals>.camera_depth at 0x7f14ade6ef20>
+DEBUG: Sensor name: birdview_depth
+DEBUG: Got data shape:  (84, 84, 1)
+DEBUG: Information for each observable before creation:
+Name: agentview_image
+Sensor: <function RobotEnv._create_camera_sensors.<locals>.camera_rgb at 0x7f14ade6efc0>
+DEBUG: Sensor name: agentview_image
+DEBUG: camera_rgb Before render
+DEBUG: camera_rgb after render
+DEBUG: camera_rgb cam_d
+DEBUG: camera_rgb before accessing obs_cache
+DEBUG: camera_rgb after obs_cache
+DEBUG: Got data shape:  (84, 84, 3)
+DEBUG: Information for each observable before creation:
+Name: agentview_depth
+Sensor: <function RobotEnv._create_camera_sensors.<locals>.camera_depth at 0x7f14ade6f060>
+DEBUG: Sensor name: agentview_depth
+DEBUG: Got data shape:  (84, 84, 1)
+DEBUG: Information for each observable before creation:
+Name: sideview_image
+Sensor: <function RobotEnv._create_camera_sensors.<locals>.camera_rgb at 0x7f14ade6f100>
+DEBUG: Sensor name: sideview_image
+DEBUG: camera_rgb Before render
+Current sensor for observable sideview_image is invalid.

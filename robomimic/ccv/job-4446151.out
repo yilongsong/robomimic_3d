@@ -1,0 +1,196 @@
+## SLURM PROLOG ###############################################################
+##    Job ID : 4446151
+##  Job Name : multi_camera_obs.sh
+##  Nodelist : node1323
+##      CPUs : 
+##   Mem/CPU : 3072 MB
+## Directory : /oscar/data/stellex/nharlalk/robomimic/robomimic/scripts
+##   Job Started : Mon Sep  2 04:42:13 PM EDT 2024
+###############################################################################
+ROBOMIMIC WARNING(
+    No private macro file found!
+    It is recommended to use a private macro file
+    To setup, run: python /users/nharlalk/data/nharlalk/robomimic/robomimic/scripts/setup_macros.py
+)
+Generated 5 camera positions on the sphere.
+Origin: 
+[array([-0.31819805,  0.31819805,  0.75057714]), array([-0.38971143, -0.225     ,  0.75057714]), array([ 0.11646857, -0.43466662,  0.75057714]), array([-0.34472992,  0.69904312,  1.08      ]), array([-0.77275479,  0.1017351 ,  1.08      ])]
+DEBUG: Going to create env
+Warning: make sure gym is installed if you want to use the GymWrapper.
+WARNING: robosuite task zoo environments not imported, possibly because robosuite_task_zoo is not installed...
+Got error: No module named 'robosuite_task_zoo'
+WARNING: robosuite task zoo environments not imported since robosuite task zoo is not installed!
+
+============= Initialized Observation Utils with Obs Spec =============
+
+using obs modality: low_dim with keys: []
+using obs modality: rgb with keys: ['frontview_image', 'birdview_image', 'camera2_image', 'agentview_image', 'camera1_image', 'camera3_image', 'sideview_image', 'camera0_image', 'camera4_image']
+using obs modality: depth with keys: ['camera1_depth', 'camera2_depth', 'camera4_depth', 'sideview_depth', 'agentview_depth', 'frontview_depth', 'birdview_depth', 'camera0_depth', 'camera3_depth']
+DEBUG: Going to make robosuite env
+DEBUG: Began creating the mujoco environment.
+DEBUG: Finsihed creating model in mujoco env
+DEBUG: Finished creating sim in mujoco env
+DEBUG: Finished renderer init in mujoco env
+DEBUG: Done resetting internals in mujoco env
+DEBUG: Sensor name: robot0_joint_pos
+DEBUG: Got sensor modality:  robot0_proprio
+DEBUG: Got data shape:  (7,)
+DEBUG: Sensor name: robot0_joint_pos_cos
+DEBUG: Got sensor modality:  robot0_proprio
+DEBUG: Got data shape:  (7,)
+DEBUG: Sensor name: robot0_joint_pos_sin
+DEBUG: Got sensor modality:  robot0_proprio
+DEBUG: Got data shape:  (7,)
+DEBUG: Sensor name: robot0_joint_vel
+DEBUG: Got sensor modality:  robot0_proprio
+DEBUG: Got data shape:  (7,)
+DEBUG: Sensor name: robot0_eef_pos
+DEBUG: Got sensor modality:  robot0_proprio
+DEBUG: Got data shape:  (3,)
+DEBUG: Sensor name: robot0_eef_quat
+DEBUG: Got sensor modality:  robot0_proprio
+DEBUG: Got data shape:  (4,)
+DEBUG: Sensor name: robot0_eef_vel_lin
+DEBUG: Got sensor modality:  robot0_proprio
+DEBUG: Got data shape:  (3,)
+DEBUG: Sensor name: robot0_eef_vel_ang
+DEBUG: Got sensor modality:  robot0_proprio
+DEBUG: Got data shape:  (3,)
+DEBUG: Sensor name: robot0_gripper_qpos
+DEBUG: Got sensor modality:  robot0_proprio
+DEBUG: Got data shape:  (2,)
+DEBUG: Sensor name: robot0_gripper_qvel
+DEBUG: Got sensor modality:  robot0_proprio
+DEBUG: Got data shape:  (2,)
+DEBUG: Sensor name: frontview_image
+DEBUG: Got sensor modality:  image
+DEBUG: Got data shape:  (84, 84, 3)
+DEBUG: Sensor name: frontview_depth
+DEBUG: Got sensor modality:  image
+DEBUG: Got data shape:  (84, 84, 1)
+DEBUG: Sensor name: birdview_image
+DEBUG: Got sensor modality:  image
+DEBUG: Got data shape:  (84, 84, 3)
+DEBUG: Sensor name: birdview_depth
+DEBUG: Got sensor modality:  image
+DEBUG: Got data shape:  (84, 84, 1)
+DEBUG: Sensor name: agentview_image
+DEBUG: Got sensor modality:  image
+DEBUG: Got data shape:  (84, 84, 3)
+DEBUG: Sensor name: agentview_depth
+DEBUG: Got sensor modality:  image
+DEBUG: Got data shape:  (84, 84, 1)
+DEBUG: Sensor name: sideview_image
+DEBUG: Got sensor modality:  image
+DEBUG: Got data shape:  (84, 84, 3)
+DEBUG: Sensor name: sideview_depth
+DEBUG: Got sensor modality:  image
+DEBUG: Got data shape:  (84, 84, 1)
+DEBUG: Sensor name: camera0_image
+DEBUG: Got sensor modality:  image
+DEBUG: Got data shape:  (84, 84, 3)
+DEBUG: Sensor name: camera0_depth
+DEBUG: Got sensor modality:  image
+DEBUG: Got data shape:  (84, 84, 1)
+DEBUG: Sensor name: camera1_image
+DEBUG: Got sensor modality:  image
+DEBUG: Got data shape:  (84, 84, 3)
+DEBUG: Sensor name: camera1_depth
+DEBUG: Got sensor modality:  image
+DEBUG: Got data shape:  (84, 84, 1)
+DEBUG: Sensor name: camera2_image
+DEBUG: Got sensor modality:  image
+DEBUG: Got data shape:  (84, 84, 3)
+DEBUG: Sensor name: camera2_depth
+DEBUG: Got sensor modality:  image
+DEBUG: Got data shape:  (84, 84, 1)
+DEBUG: Sensor name: camera3_image
+DEBUG: Got sensor modality:  image
+DEBUG: Got data shape:  (84, 84, 3)
+DEBUG: Sensor name: camera3_depth
+DEBUG: Got sensor modality:  image
+DEBUG: Got data shape:  (84, 84, 1)
+DEBUG: Sensor name: camera4_image
+DEBUG: Got sensor modality:  image
+DEBUG: Got data shape:  (84, 84, 3)
+DEBUG: Sensor name: camera4_depth
+DEBUG: Got sensor modality:  image
+DEBUG: Got data shape:  (84, 84, 1)
+DEBUG: Sensor name: world_pose_in_gripper
+DEBUG: Got sensor modality:  object
+DEBUG: Got data shape:  (4, 4)
+DEBUG: Sensor name: eef_control_frame_pose
+DEBUG: Got sensor modality:  object
+DEBUG: Got data shape:  (4, 4)
+DEBUG: Sensor name: coffee_pod_pos
+DEBUG: Got sensor modality:  object
+DEBUG: Got data shape:  (3,)
+DEBUG: Sensor name: coffee_pod_quat
+DEBUG: Got sensor modality:  object
+DEBUG: Got data shape:  (4,)
+DEBUG: Sensor name: coffee_pod_to_robot0_eef_pos
+DEBUG: Got sensor modality:  object
+DEBUG: Got data shape:  (3,)
+DEBUG: Sensor name: coffee_pod_to_robot0_eef_quat
+DEBUG: Got sensor modality:  object
+DEBUG: Got data shape:  (4,)
+DEBUG: Sensor name: coffee_machine_pos
+DEBUG: Got sensor modality:  object
+DEBUG: Got data shape:  (3,)
+DEBUG: Sensor name: coffee_machine_quat
+DEBUG: Got sensor modality:  object
+DEBUG: Got data shape:  (4,)
+DEBUG: Sensor name: coffee_machine_to_robot0_eef_pos
+DEBUG: Got sensor modality:  object
+DEBUG: Got data shape:  (3,)
+DEBUG: Sensor name: coffee_machine_to_robot0_eef_quat
+DEBUG: Got sensor modality:  object
+DEBUG: Got data shape:  (4,)
+DEBUG: Sensor name: coffee_pod_holder_pos
+DEBUG: Got sensor modality:  object
+DEBUG: Got data shape:  (3,)
+DEBUG: Sensor name: coffee_pod_holder_quat
+DEBUG: Got sensor modality:  object
+DEBUG: Got data shape:  (4,)
+DEBUG: Sensor name: coffee_pod_holder_to_robot0_eef_pos
+DEBUG: Got sensor modality:  object
+DEBUG: Got data shape:  (3,)
+DEBUG: Sensor name: coffee_pod_holder_to_robot0_eef_quat
+DEBUG: Got sensor modality:  object
+DEBUG: Got data shape:  (4,)
+DEBUG: Sensor name: coffee_machine_lid_pos
+DEBUG: Got sensor modality:  object
+DEBUG: Got data shape:  (3,)
+DEBUG: Sensor name: coffee_machine_lid_quat
+DEBUG: Got sensor modality:  object
+DEBUG: Got data shape:  (4,)
+DEBUG: Sensor name: coffee_machine_lid_to_robot0_eef_pos
+DEBUG: Got sensor modality:  object
+DEBUG: Got data shape:  (3,)
+DEBUG: Sensor name: coffee_machine_lid_to_robot0_eef_quat
+DEBUG: Got sensor modality:  object
+DEBUG: Got data shape:  (4,)
+DEBUG: Sensor name: robot0_eef_pos_rel_pod
+DEBUG: Got sensor modality:  object_centric
+DEBUG: Got data shape:  (3,)
+DEBUG: Sensor name: robot0_eef_quat_rel_pod
+DEBUG: Got sensor modality:  object_centric
+DEBUG: Got data shape:  (4,)
+DEBUG: Sensor name: robot0_eef_pos_rel_pod_holder
+DEBUG: Got sensor modality:  object_centric
+DEBUG: Got data shape:  (3,)
+DEBUG: Sensor name: robot0_eef_quat_rel_pod_holder
+DEBUG: Got sensor modality:  object_centric
+DEBUG: Got data shape:  (4,)
+DEBUG: Sensor name: pod_pos_rel_pod_holder
+DEBUG: Got sensor modality:  object_centric
+DEBUG: Got data shape:  (3,)
+DEBUG: Sensor name: pod_quat_rel_pod_holder
+DEBUG: Got sensor modality:  object_centric
+DEBUG: Got data shape:  (4,)
+DEBUG: Sensor name: hinge_angle
+DEBUG: Got sensor modality:  object
+DEBUG: Got data shape:  (1,)
+DEBUG: Setup obs in mujoco env
+DEBUG: Finished creating env
+Invalid mode; must be one of r, r+, w, w-, x, a

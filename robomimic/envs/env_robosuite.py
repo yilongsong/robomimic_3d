@@ -152,6 +152,7 @@ class EnvRobosuite(EB.EnvBase):
 
         self._env_name = env_name
         self._init_kwargs = deepcopy(kwargs)
+        print("DEBUG: Going to make robosuite env")
         self.env = robosuite.make(self._env_name, **kwargs)
 
         self.depthminmax = DepthMinMax()

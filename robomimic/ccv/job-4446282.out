@@ -1,0 +1,20 @@
+## SLURM PROLOG ###############################################################
+##    Job ID : 4446282
+##  Job Name : multi_camera_obs.sh
+##  Nodelist : node1733
+##      CPUs : 
+##   Mem/CPU : 3072 MB
+## Directory : /oscar/data/stellex/nharlalk/robomimic/robomimic/scripts
+##   Job Started : Mon Sep  2 05:55:54 PM EDT 2024
+###############################################################################
+ROBOMIMIC WARNING(
+    No private macro file found!
+    It is recommended to use a private macro file
+    To setup, run: python /users/nharlalk/data/nharlalk/robomimic/robomimic/scripts/setup_macros.py
+)
+Generated 5 camera positions on the sphere.
+Origin: 
+[array([-0.31819805,  0.31819805,  0.75057714]), array([-0.38971143, -0.225     ,  0.75057714]), array([ 0.11646857, -0.43466662,  0.75057714]), array([-0.34472992,  0.69904312,  1.08      ]), array([-0.77275479,  0.1017351 ,  1.08      ])]
+DEBUG: Going to create env
+dict_keys(['frontview', 'birdview', 'agentview', 'camera0', 'camera1', 'camera2', 'camera3', 'camera4'])
+{'env_name': 'Coffee_D0', 'env_version': '1.4.1', 'type': 1, 'env_kwargs': {'has_renderer': False, 'has_offscreen_renderer': True, 'ignore_done': True, 'use_object_obs': True, 'use_camera_obs': True, 'control_freq': 20, 'controller_configs': {'type': 'OSC_POSE', 'input_max': 1, 'input_min': -1, 'output_max': [0.05, 0.05, 0.05, 0.5, 0.5, 0.5], 'output_min': [-0.05, -0.05, -0.05, -0.5, -0.5, -0.5], 'kp': 150, 'damping': 1, 'impedance_mode': 'fixed', 'kp_limits': [0, 300], 'damping_limits': [0, 10], 'position_limits': None, 'orientation_limits': None, 'uncouple_pos_ori': True, 'control_delta': True, 'interpolation': None, 'ramp_ratio': 0.2}, 'robots': ['Panda'], 'camera_depths': False, 'camera_heights': 84, 'camera_widths': 84, 'render_gpu_device_id': 0, 'reward_shaping': False, 'camera_names': ['agentview', 'robot0_eye_in_hand']}}

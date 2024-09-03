@@ -1,0 +1,134 @@
+## SLURM PROLOG ###############################################################
+##    Job ID : 4446093
+##  Job Name : multi_camera_obs.sh
+##  Nodelist : node1326
+##      CPUs : 
+##   Mem/CPU : 3072 MB
+## Directory : /oscar/data/stellex/nharlalk/robomimic/robomimic/scripts
+##   Job Started : Mon Sep  2 04:06:48 PM EDT 2024
+###############################################################################
+ROBOMIMIC WARNING(
+    No private macro file found!
+    It is recommended to use a private macro file
+    To setup, run: python /users/nharlalk/data/nharlalk/robomimic/robomimic/scripts/setup_macros.py
+)
+Generated 5 camera positions on the sphere.
+Origin: 
+[array([-0.31819805,  0.31819805,  0.75057714]), array([-0.38971143, -0.225     ,  0.75057714]), array([ 0.11646857, -0.43466662,  0.75057714]), array([-0.34472992,  0.69904312,  1.08      ]), array([-0.77275479,  0.1017351 ,  1.08      ])]
+
+
+DEBUG: Updated XML
+<mujoco model="table_arena">
+  <asset>
+    <texture builtin="gradient" height="256" rgb1=".9 .9 1." rgb2=".2 .3 .4" type="skybox" width="256"/>
+    <texture file="../textures/light-gray-floor-tile.png" type="2d" name="texplane"/>
+    <material name="floorplane" reflectance="0.01" shininess="0.0" specular="0.0" texrepeat="2 2" texture="texplane" texuniform="true"/>
+    <!-- ceramic table texture and material-->
+    <texture file="../textures/ceramic.png" type="cube" name="tex-ceramic"/>
+    <material name="table_ceramic" reflectance="0.0" shininess="0.0" specular="0.2" texrepeat="1 1" texture="tex-ceramic" />
+    <!-- steel legs -->
+    <texture file="../textures/steel-brushed.png" type="cube" name="tex-steel-brushed"/>
+    <material name="table_legs_metal" reflectance="0.8" shininess="0.8" texrepeat="1 1" texture="tex-steel-brushed" />
+    <!-- plaster walls -->
+    <texture file="../textures/light-gray-plaster.png" type="2d" name="tex-light-gray-plaster"/>
+    <material name="walls_mat" reflectance="0.0" shininess="0.1" specular="0.1" texrepeat="3 3" texture="tex-light-gray-plaster" texuniform="true" />
+    <!-- added table texture and material for domain randomization -->
+    <texture  name="textable" builtin="flat" height="512" width="512" rgb1="0.5 0.5 0.5" rgb2="0.5 0.5 0.5"/>
+    <material name="table_mat" texture="textable" />
+
+  </asset>
+  <worldbody>
+    <!-- Floor -->
+    <geom condim="3" group="1" material="floorplane" name="floor" pos="0 0 0" size="3 3 .125" type="plane"/>
+    <!-- Walls (visual only) -->
+    <geom pos="-1.25 2.25 1.5" quat="0.6532815 0.6532815 0.2705981 0.2705981" size="1.06 1.5 0.01" type="box" conaffinity="0" contype="0" group="1" name="wall_leftcorner_visual" material="walls_mat"/>
+    <geom pos="-1.25 -2.25 1.5" quat="0.6532815 0.6532815 -0.2705981 -0.2705981" size="1.06 1.5 0.01" type="box" conaffinity="0" contype="0" group="1" name="wall_rightcorner_visual" material="walls_mat"/>
+    <geom pos="1.25 3 1.5" quat="0.7071 0.7071 0 0" size="1.75 1.5 0.01" type="box" conaffinity="0" contype="0" group="1" name="wall_left_visual" material="walls_mat"/>
+    <geom pos="1.25 -3 1.5" quat="0.7071 -0.7071 0 0" size="1.75 1.5 0.01" type="box" conaffinity="0" contype="0" group="1" name="wall_right_visual" material="walls_mat"/>
+    <geom pos="-2 0 1.5" quat="0.5 0.5 0.5 0.5" size="1.5 1.5 0.01" type="box" conaffinity="0" contype="0" group="1" name="wall_rear_visual" material="walls_mat"/>
+    <geom pos="3 0 1.5" quat="0.5 0.5 -0.5 -0.5" size="3 1.5 0.01" type="box" conaffinity="0" contype="0" group="1" name="wall_front_visual" material="walls_mat"/>
+    <!-- Table body -->
+    <body name="table" pos="0 0 0.4">
+      <geom pos="0 0 0" size="0.4 0.4 0.4" type="box" group="0" name="table_collision" friction="1 0.005 0.0001"/>
+      <geom pos="0 0 0" size="0.4 0.4 0.4" type="box" conaffinity="0" contype="0" group="1" name="table_visual" material="table_ceramic"/>
+      <site pos="0 0 0.4" name="table_top" size="0.001 0.001 0.001" rgba="0 0 0 0"/>
+      <!-- Legs (visual only) -->
+      <geom pos="0 0 0" size="0.05 0.1" type="cylinder" conaffinity="0" contype="0" group="1" name="table_leg1_visual" material="table_legs_metal"/>
+      <geom pos="0 0 0" size="0.05 0.1" type="cylinder" conaffinity="0" contype="0" group="1" name="table_leg2_visual" material="table_legs_metal"/>
+      <geom pos="0 0 0" size="0.05 0.1" type="cylinder" conaffinity="0" contype="0" group="1" name="table_leg3_visual" material="table_legs_metal"/>
+      <geom pos="0 0 0" size="0.05 0.1" type="cylinder" conaffinity="0" contype="0" group="1" name="table_leg4_visual" material="table_legs_metal"/>
+    </body>
+    <light pos="1.0 1.0 1.5" dir="-0.2 -0.2 -1" specular="0.3 0.3 0.3" directional="true" castshadow="false"/>
+    <!-- front view -->
+    <camera mode="fixed" name="frontview" pos="1.6 0 1.45" quat="0.56 0.43 0.43 0.56"/>
+    <!-- bird view -->
+    <camera mode="fixed" name="birdview" pos="-0.2 0 3.0" quat="0.7071 0 0 0.7071"/>
+    <!-- agent view -->
+    <camera mode="fixed" name="agentview" pos="0.5 0 1.35" quat="0.653 0.271 0.271 0.653"/>
+    <!-- side view -->
+    <camera mode="fixed" name="sideview" pos="0. 1.2761224129427358 1.4879572214102434" quat="0.009905065491771751 0.006877963156909582 0.5912228352893879 0.806418094001364" />
+    <!-- new camera -->
+    <camera mode="fixed" name="sideview2" pos="0. -1.5 1.4879572214102434" quat="0.7933533 0.6087614 0 0" />
+    <camera mode="fixed" name="backview" pos="-0.8 0.7 1.2" quat=" 0.4777144 0.1530459 -0.5213338 -0.6903455 " />
+    <camera mode="fixed" name="camera4" pos="1.5455095855222696 -0.20347019697926752 0.9000000000000002" quat="0.5108216336287791 0.5500287038173655 0.48236222721824396 0.44797854947994864" />
+    <camera mode="fixed" name="camera3" pos="0.6894598347651623 -1.398086240632385 0.9000000000000002" quat="0.6616800873792765 0.7124659897772984 0.1661237691620631 0.1542821575655666" />
+    <camera mode="fixed" name="camera2" pos="-0.23293714059226875 0.8693332436601614 1.5588457268119897" quat="-0.11355352720663452 -0.05522262185322429 0.4194574570570946 0.8625246712942398" />
+    <camera mode="fixed" name="camera1" pos="0.7794228634059948 0.4499999999999998 1.5588457268119897" quat="0.43498368134112364 0.21153846945954569 0.36639537685929036 0.7534138365461761" />
+    <camera mode="fixed" name="camera0" pos="0.6363961030678927 -0.6363961030678926 1.5588457268119897" quat="0.8037450403349514 0.3908721245448764 0.16190453514007333 0.3329220963968472" />
+    <!-- new camera ends-->
+  </worldbody>
+</mujoco>
+
+
+
+DEBUG: Going to create env
+Warning: make sure gym is installed if you want to use the GymWrapper.
+WARNING: robosuite task zoo environments not imported, possibly because robosuite_task_zoo is not installed...
+Got error: No module named 'robosuite_task_zoo'
+WARNING: robosuite task zoo environments not imported since robosuite task zoo is not installed!
+
+============= Initialized Observation Utils with Obs Spec =============
+
+using obs modality: low_dim with keys: []
+using obs modality: rgb with keys: ['camera2_image', 'camera0_image', 'camera3_image', 'agentview_image', 'birdview_image', 'sideview_image', 'camera4_image', 'frontview_image', 'camera1_image']
+using obs modality: depth with keys: ['camera1_depth', 'camera2_depth', 'agentview_depth', 'camera0_depth', 'camera3_depth', 'camera4_depth', 'sideview_depth', 'frontview_depth', 'birdview_depth']
+DEBUG: Going to make robosuite env
+DEBUG: Began creating the mujoco environment.
+DEBUG: Finsihed creating model in mujoco env
+DEBUG: Finished creating sim in mujoco env
+DEBUG: Finished renderer init in mujoco env
+DEBUG: Done resetting internals in mujoco env
+DEBUG: Got sensor modality:  robot0_proprio
+DEBUG: Got data shape:  (7,)
+DEBUG: Got sensor modality:  robot0_proprio
+DEBUG: Got data shape:  (7,)
+DEBUG: Got sensor modality:  robot0_proprio
+DEBUG: Got data shape:  (7,)
+DEBUG: Got sensor modality:  robot0_proprio
+DEBUG: Got data shape:  (7,)
+DEBUG: Got sensor modality:  robot0_proprio
+DEBUG: Got data shape:  (3,)
+DEBUG: Got sensor modality:  robot0_proprio
+DEBUG: Got data shape:  (4,)
+DEBUG: Got sensor modality:  robot0_proprio
+DEBUG: Got data shape:  (3,)
+DEBUG: Got sensor modality:  robot0_proprio
+DEBUG: Got data shape:  (3,)
+DEBUG: Got sensor modality:  robot0_proprio
+DEBUG: Got data shape:  (2,)
+DEBUG: Got sensor modality:  robot0_proprio
+DEBUG: Got data shape:  (2,)
+DEBUG: Got sensor modality:  image
+DEBUG: Got data shape:  (84, 84, 3)
+DEBUG: Got sensor modality:  image
+DEBUG: Got data shape:  (84, 84, 1)
+DEBUG: Got sensor modality:  image
+DEBUG: Got data shape:  (84, 84, 3)
+DEBUG: Got sensor modality:  image
+DEBUG: Got data shape:  (84, 84, 1)
+DEBUG: Got sensor modality:  image
+DEBUG: Got data shape:  (84, 84, 3)
+DEBUG: Got sensor modality:  image
+DEBUG: Got data shape:  (84, 84, 1)
+DEBUG: Got sensor modality:  image
+Current sensor for observable sideview_image is invalid.

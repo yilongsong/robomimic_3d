@@ -1,0 +1,29 @@
+## SLURM PROLOG ###############################################################
+##    Job ID : 4441429
+##  Job Name : multi_camera_obs.sh
+##  Nodelist : node1601
+##      CPUs : 
+##   Mem/CPU : 3072 MB
+## Directory : /oscar/data/stellex/nharlalk/robomimic/robomimic/scripts
+##   Job Started : Sun Sep  1 07:02:22 PM EDT 2024
+###############################################################################
+ROBOMIMIC WARNING(
+    No private macro file found!
+    It is recommended to use a private macro file
+    To setup, run: python /users/nharlalk/data/nharlalk/robomimic/robomimic/scripts/setup_macros.py
+)
+Generated 30 camera positions on the sphere.
+Origin: 
+[array([-0.04843035,  0.18074454,  0.64966716]), array([-0.16205113,  0.09356026,  0.64966716]), array([-0.18074454, -0.04843035,  0.64966716]), array([-0.09356026, -0.16205113,  0.64966716]), array([ 0.04843035, -0.18074454,  0.64966716]), array([-0.04778081,  0.36293126,  0.70780909]), array([-0.25884561,  0.25884561,  0.70780909]), array([-0.36293126,  0.04778081,  0.70780909]), array([-0.31701984, -0.18303149,  0.70780909]), array([-0.14008624, -0.33819809,  0.70780909]), array([ 0.09474407, -0.35358969,  0.70780909]), array([-0.01978019,  0.5286368 ,  0.80188471]), array([-0.2980001 ,  0.43708587,  0.80188471]), array([-0.4848676 ,  0.21154557,  0.80188471]), array([-0.52309816, -0.07884436,  0.80188471]), array([-0.40097214, -0.34506443,  0.80188471]), array([-0.15592747, -0.50550444,  0.80188471]), array([ 0.13691702, -0.51098126,  0.80188471]), array([0.02188352, 0.66847224, 0.92778245]), array([-0.2958161 ,  0.5998557 ,  0.92778245]), array([-0.54365653,  0.38957876,  0.92778245]), array([-0.66310841,  0.08729988,  0.92778245]), array([-0.62596228, -0.23559552,  0.92778245]), array([-0.44099049, -0.50285328,  0.92778245]), array([-0.15187549, -0.65135847,  0.92778245]), array([ 0.17310603, -0.6460405 ,  0.92778245]), array([0.06793118, 0.77645692, 1.08      ]), array([-0.26657832,  0.73241791,  1.08      ]), array([-0.55113519,  0.55113519,  1.08      ]), array([-0.73241791,  0.26657832,  1.08      ])]
+DEBUG: Going to create env
+Warning: make sure gym is installed if you want to use the GymWrapper.
+WARNING: robosuite task zoo environments not imported, possibly because robosuite_task_zoo is not installed...
+Got error: No module named 'robosuite_task_zoo'
+WARNING: robosuite task zoo environments not imported since robosuite task zoo is not installed!
+
+============= Initialized Observation Utils with Obs Spec =============
+
+using obs modality: low_dim with keys: []
+using obs modality: rgb with keys: ['camera23_image', 'camera20_image', 'camera3_image', 'camera1_image', 'camera24_image', 'camera29_image', 'camera22_image', 'camera13_image', 'camera2_image', 'camera5_image', 'camera10_image', 'camera17_image', 'camera4_image', 'camera25_image', 'camera14_image', 'frontview_image', 'camera18_image', 'camera9_image', 'camera28_image', 'agentview_image', 'camera0_image', 'camera7_image', 'camera27_image', 'camera11_image', 'camera8_image', 'camera19_image', 'camera26_image', 'camera15_image', 'camera21_image', 'camera16_image', 'camera6_image', 'sideview_image', 'birdview_image', 'camera12_image']
+using obs modality: depth with keys: ['camera23_depth', 'camera13_depth', 'camera22_depth', 'camera14_depth', 'camera17_depth', 'camera11_depth', 'camera20_depth', 'camera24_depth', 'camera15_depth', 'sideview_depth', 'camera6_depth', 'camera5_depth', 'camera1_depth', 'camera18_depth', 'camera29_depth', 'camera0_depth', 'camera2_depth', 'camera12_depth', 'camera9_depth', 'camera28_depth', 'frontview_depth', 'camera7_depth', 'birdview_depth', 'camera26_depth', 'camera25_depth', 'camera8_depth', 'camera16_depth', 'camera19_depth', 'camera27_depth', 'camera10_depth', 'agentview_depth', 'camera3_depth', 'camera4_depth', 'camera21_depth']
+Current sensor for observable sideview_image is invalid.
