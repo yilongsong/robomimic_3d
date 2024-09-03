@@ -31,6 +31,9 @@ def find_index_to_add_camera(xml, camera_string = "<camera"):
     """
     last_cam_starting_point = xml.rfind(camera_string)
 
+    if last_cam_starting_point == -1:
+        raise ValueError("Could not find camera string in xml to add camera.")
+
     return xml.find(">", last_cam_starting_point) + 1
 
 def visualize_points_on_sphere(points, radius):
@@ -409,9 +412,7 @@ class Simulation():
 
         # load the initial state
         env.reset()
-        print("DEBUG: Initial state model")
-        print(initial_state['model'])
-        insert_index = find_index_to_add_camera(initial_state['model'], camera_string="<camera name=\"sideview")
+        insert_index = find_index_to_add_camera(initial_state['model'], camera_string="<camera name=\"agentview")
 
         for camera in self.custom_camera_names:
             new_cameras_xml = f'''\n    <camera mode="fixed" name="{camera}" pos="{array_to_string(self.cameras[camera]['pos'])}" quat="{array_to_string(self.cameras[camera]['quat'])}" />'''
