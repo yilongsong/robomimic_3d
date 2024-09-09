@@ -129,6 +129,7 @@ def extract_trajectory(
     store_voxel=True,
     camera_height=84, 
     camera_width=84,
+    render=False,
 ):
     """
     Helper function to extract observations, rewards, and dones along a trajectory using
@@ -152,13 +153,14 @@ def extract_trajectory(
         camera_width=args.camera_width, 
         reward_shaping=args.shaped,
         use_depth_obs=True,
-        render=True
+        render=render
     )
     assert states.shape[0] == actions.shape[0]
 
     # load the initial state
     env.reset()
-    env.env.viewer.set_camera(camera_id=0)
+    if render:
+        env.env.viewer.set_camera(camera_id=0)
     obs = env.reset_to(initial_state)
 
     # maybe add in intrinsics and extrinsics for all cameras
@@ -192,8 +194,10 @@ def extract_trajectory(
         else:
             # reset to simulator state to get observation
             next_obs = env.reset_to({"states" : states[t]})
-        print(actions[t-1])
-        env.env.render()
+        
+        if render:
+            print(actions[t-1])
+            env.env.render()
         # infer reward signal
         # note: our tasks use reward r(s'), reward AFTER transition, so this is
         #       the reward for the current timestep
@@ -283,7 +287,7 @@ def get_camera_info(
     return camera_info
 
 def worker(x):
-    env_meta, args, camera_names, initial_state, states, actions, store_voxel = x
+    env_meta, args, camera_names, initial_state, states, actions, store_voxel, render= x
     traj, camera_info = extract_trajectory(
         env_meta=env_meta,
         args=args,
@@ -295,12 +299,16 @@ def worker(x):
         done_mode=args.done_mode,
         camera_height=args.camera_height, 
         camera_width=args.camera_width,
+        render=render
     )
     return traj, camera_info
 
 
 def dataset_states_to_obs(args):
     store_voxel = args.store_voxel
+    render = args.render
+    if render:
+        assert args.num_workers==1, "args.num_workers should be 1 if render"
     if args.depth:
         assert len(args.camera_names) > 0, "must specify camera names if using depth"
 
@@ -378,7 +386,7 @@ def dataset_states_to_obs(args):
             actions_list.append(actions)
             
         with multiprocessing.Pool(num_workers) as pool:
-            output = pool.map(worker, [[env_meta, args, camera_names, initial_state_list[j], states_list[j], actions_list[j], store_voxel] for j in range(len(initial_state_list))]) 
+            output = pool.map(worker, [[env_meta, args, camera_names, initial_state_list[j], states_list[j], actions_list[j], store_voxel, render] for j in range(len(initial_state_list))]) 
 
         for j, ind in enumerate(range(i, end)):
             ep = demos[ind]
@@ -511,6 +519,13 @@ if __name__ == "__main__":
         "--depth", 
         action='store_true',
         help="(optional) use depth observations for each camera",
+    )
+
+    # flag for render visualization
+    parser.add_argument(
+        "--render", 
+        action='store_true',
+        help="(optional) render frames to check demonstrations",
     )
 
     # specifies how the "done" signal is written. If "0", then the "done" signal is 1 wherever 
