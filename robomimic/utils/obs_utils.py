@@ -154,7 +154,7 @@ def depth2fgpcd(depth, camera_intrinsic):
     fgpcd[:, :, 2] = depth.reshape(n, -1)
     return fgpcd
 
-def clip_depth_alone_gripper_x_batch(rgbd_images, gripper_pose, camera_intrinsic, camera_extrinsic, x_range=0.40):
+def clip_depth_alone_gripper_x_batch(goal_key, rgbd_images, gripper_pose, camera_intrinsic, camera_extrinsic, depth_normalization_around_gripper, x_range=0.30):
     """
     Clip depths to be centered at gripper x axis for a batch of raw RGBD images.
     
@@ -180,21 +180,27 @@ def clip_depth_alone_gripper_x_batch(rgbd_images, gripper_pose, camera_intrinsic
 
     pcd_mask_far = pcd_rt_world[..., 0] > (gripper_pose[..., 0:1] - x_range_half)
     pcd_mask_close = pcd_rt_world[..., 0] < (gripper_pose[..., 0:1] + x_range_half)
-    pcd_mask = pcd_mask_far * pcd_mask_close
+    # pcd_mask = pcd_mask_far * pcd_mask_close
+    pcd_mask = pcd_mask_far
 
     pcd_mask, pcd_mask_close, pcd_mask_far = pcd_mask.reshape(batch_size, height, width), pcd_mask_close.reshape(batch_size, height, width), pcd_mask_far.reshape(batch_size, height, width)
     rgbd_images[~pcd_mask,:3] = np.array([0.,0.,0.])
 
     camera_tilt_angle = Rotation.from_matrix(camera_extrinsic[:3,:3]).as_euler('ZYX')[2] + np.pi / 2
-    # center depth at 
-    x_distance_camera_gripper = camera_extrinsic[0, 3] - gripper_pose[..., 0]
-    rgbd_images[..., 3] = rgbd_images[..., 3] - x_distance_camera_gripper[:,None,None] / np.cos(camera_tilt_angle)
+    
 
-    camera_clip_range = x_range_half / np.cos(camera_tilt_angle)
-    rgbd_images[~pcd_mask_close, 3] = -camera_clip_range
-    rgbd_images[~pcd_mask_far, 3] = camera_clip_range
-    depth_min, depth_max = -camera_clip_range, camera_clip_range
-    rgbd_images[...,3] = (rgbd_images[...,3] - depth_min) / (depth_max - depth_min) * 255
+    if depth_normalization_around_gripper:
+        # center depth at 
+        camera_clip_range = x_range_half / np.cos(camera_tilt_angle)
+        rgbd_images[~pcd_mask_close, 3] = -camera_clip_range
+        rgbd_images[~pcd_mask_far, 3] = camera_clip_range
+        x_distance_camera_gripper = camera_extrinsic[0, 3] - gripper_pose[..., 0]
+        rgbd_images[..., 3] = rgbd_images[..., 3] - x_distance_camera_gripper[:,None,None] / np.cos(camera_tilt_angle)
+        depth_min, depth_max = -camera_clip_range, camera_clip_range
+        rgbd_images[...,3] = (rgbd_images[...,3] - depth_min) / (depth_max - depth_min) * 255
+    else:
+        rgbd_images[~pcd_mask_far, 3] = DEPTH_MINMAX[goal_key.split('_')[0]+'_depth'][1]
+        rgbd_images[...,3] = discretize_depth(rgbd_images[...,3], goal_key.split('_')[0]+'_depth')
 
     
     # x_distance_camera_gripper = camera_extrinsic[0, 3] - gripper_pose[..., 0]
@@ -231,15 +237,15 @@ def convert_sideview_to_gripper_batch(sim, images, goal_key, robot0_eef_pos, cam
         intrinsic = camera_info['intrinsic']
 
     depth_range = 0.35
-    rgbd_normalization = True
+    depth_normalization_around_gripper = False
     raw_image = images.copy().astype(float)
 
 
     if 'rgbd' in goal_key:
         raw_image[...,3] = undiscretize_depth(raw_image[...,3], goal_key.split('_')[0]+'_depth')
 
-    if 'rgbd' in goal_key and rgbd_normalization:
-        raw_image = clip_depth_alone_gripper_x_batch(raw_image, robot0_eef_pos, intrinsic, extrinsic, x_range=depth_range)
+    if 'rgbd' in goal_key:
+        raw_image = clip_depth_alone_gripper_x_batch(goal_key, raw_image, robot0_eef_pos, intrinsic, extrinsic, depth_normalization_around_gripper, x_range=depth_range)
     
     bbox_centers = xyz_to_bbox_center_batch(robot0_eef_pos, intrinsic, extrinsic)
     bbox_center_in_image = np.clip(bbox_centers, 0, np.array([h,w]))
@@ -247,7 +253,8 @@ def convert_sideview_to_gripper_batch(sim, images, goal_key, robot0_eef_pos, cam
         print("WARNING: End-effector center is not in observation. Trying clipping.")
 
     gripper_centered_current_obs = crop_and_pad_batch(raw_image, bbox_center_in_image, output_size=bbox_size)
-    return F.interpolate(torch.from_numpy(gripper_centered_current_obs.astype(np.uint8)).permute(0, 3, 1, 2), (h, w), mode='bilinear').permute(0, 2, 3, 1).numpy()
+    gripper_centered_current_obs = F.interpolate(torch.from_numpy(gripper_centered_current_obs.astype(np.uint8)).permute(0, 3, 1, 2), (h, w), mode='bilinear').permute(0, 2, 3, 1).numpy()
+    return gripper_centered_current_obs, bbox_center_in_image
 
 def register_obs_key(target_class):
     assert target_class not in OBS_MODALITY_CLASSES, f"Already registered modality {target_class}!"
