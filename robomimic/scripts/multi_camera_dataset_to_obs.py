@@ -538,9 +538,8 @@ if __name__ == "__main__":
     pos, quat = sim.generate_camera_pos_and_quat(args.num_cameras)
 
     # Visualize points on sphere
-    visualize_points_on_sphere(pos, sim.camera_sphere_radius)
+    # visualize_points_on_sphere(pos, sim.camera_sphere_radius)
 
-    exit()
 
     sim.add_cameras(
         pos=pos,

@@ -1,0 +1,4 @@
+[robosuite WARNING] No private macro file found! (macros.py:53)
+[robosuite WARNING] It is recommended to use a private macro file (macros.py:54)
+[robosuite WARNING] To setup, run: python /users/nharlalk/data/nharlalk/robosuite/robosuite/scripts/setup_macros.py (macros.py:55)
+slurmstepd: error: *** JOB 4447025 ON node1317 CANCELLED AT 2024-09-03T00:17:26 DUE TO TIME LIMIT ***

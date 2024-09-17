@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/oscar/data/stellex/nharlalk/robomimic/robomimic/scripts/multi_camera_dataset_to_obs.py", line 3, in <module>
+    import h5py
+ModuleNotFoundError: No module named 'h5py'
