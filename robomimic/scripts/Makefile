@@ -1,0 +1,2 @@
+multicamera:
+	python multicamera_dataset_to_obs.py --dataset /users/nharlalk/data/nharlalk/datasets/can/ph/demo_v141.hdf5 --env_xml /users/nharlalk/data/nharlalk/robosuite/robosuite/models/assets/arenas/bins_arena.xml --num_cameras 60 --output_file multicamera_pick_place_can.hdf5 --num_demos 16 --num_workers 16
