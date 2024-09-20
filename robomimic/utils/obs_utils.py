@@ -213,9 +213,9 @@ def initialize_obs_utils_with_obs_specs(obs_modality_specs):
     # remove duplicate entries and store in global mapping
     OBS_MODALITIES_TO_KEYS = { obs_modality : list(set(obs_modality_mapping[obs_modality])) for obs_modality in obs_modality_mapping }
 
-    print("\n============= Initialized Observation Utils with Obs Spec =============\n")
-    for obs_modality, obs_keys in OBS_MODALITIES_TO_KEYS.items():
-        print("using obs modality: {} with keys: {}".format(obs_modality, obs_keys))
+    # print("\n============= Initialized Observation Utils with Obs Spec =============\n")
+    # for obs_modality, obs_keys in OBS_MODALITIES_TO_KEYS.items():
+    #     print("using obs modality: {} with keys: {}".format(obs_modality, obs_keys))
 
 
 def initialize_default_obs_encoder(obs_encoder_config):
