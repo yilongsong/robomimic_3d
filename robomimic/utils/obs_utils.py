@@ -54,6 +54,7 @@ DEPTH_MINMAX = {'birdview_depth': [1.180, 2.480],
                 'backview_depth': [0.6, 1.6],
                 'frontview_depth': [1.2, 2.2],
                 'spaceview_depth': [0.45, 1.45],
+                'farspaceview_depth': [0.58, 1.58],
                 }
 
 def discretize_depth(depth, cam_name, depth_minmax=None):
@@ -127,7 +128,8 @@ def crop_and_pad_batch(images, bb_centers, output_size):
     cropped_images = []
     
     for img, top_left, bottom_right in zip(images, top_lefts, bottom_rights):
-        padded_img = np.pad(img, ((image_pad_height,image_pad_height),(image_pad_width,image_pad_width),(0,0)))
+        pad_with = (((0, 255, 0, 255), (0, 255, 0, 255)), ((0, 255, 0, 255), (0, 255, 0, 255)), (0, 0)) # pad with green and 255 depth
+        padded_img = np.pad(img, ((image_pad_height,image_pad_height),(image_pad_width,image_pad_width),(0,0)), mode='constant',constant_values=pad_with)
 
         x1, y1 = top_left + image_pad_height
         x2, y2 = bottom_right + image_pad_width
@@ -139,6 +141,48 @@ def crop_and_pad_batch(images, bb_centers, output_size):
         cropped_images.append(cropped_img)
     
     return np.stack(cropped_images)
+
+def mask_batch(images, bb_centers, output_size):
+    """
+    Mask out the areas that are away from the gripper on a batch of images based on given coordinates.
+    
+    Parameters:
+    - images: array of shape (batch_size, height, width, channels), row is y and column is x
+    - bb_centers: array of bounding box centers (x_center, y_center) for each image
+    - output_size: Tuple (out_height, out_width), the desired size of the output crop
+    
+    Returns:
+    - Tensor of shape (batch_size, channels, out_height, out_width)
+    """
+    batch_size, height, width, channels = images.shape
+    out_height, out_width = output_size
+    image_pad_height = out_height // 2
+    image_pad_width = out_width // 2
+
+    output_size_half = np.array(output_size)[None, ...]//2
+    output_size_half = output_size_half
+    top_lefts = bb_centers - output_size_half
+    bottom_rights = bb_centers + output_size_half
+
+    masked_images = []
+    
+    for img, top_left, bottom_right in zip(images, top_lefts, bottom_rights):
+        mask = np.zeros([height, width])
+        padded_mask = np.pad(mask, ((image_pad_height,image_pad_height),(image_pad_width,image_pad_width)))
+
+        x1, y1 = top_left + image_pad_height
+        x2, y2 = bottom_right + image_pad_width
+        
+        # assign ones to the pixels around the gripper
+        padded_mask[y1:y2, x1:x2] = 1
+        mask = padded_mask[image_pad_height:-image_pad_height, image_pad_width:-image_pad_width].astype(bool)
+
+        img[~mask, :3] = np.array([0, 255, 0])
+        if channels == 4:
+            img[~mask, 3] = 1
+        masked_images.append(img)
+
+    return np.stack(masked_images)
 
 def depth2fgpcd(depth, camera_intrinsic):
     # depth: (n, h, w)
@@ -184,7 +228,7 @@ def clip_depth_alone_gripper_x_batch(goal_key, rgbd_images, gripper_pose, camera
     pcd_mask = pcd_mask_far
 
     pcd_mask, pcd_mask_close, pcd_mask_far = pcd_mask.reshape(batch_size, height, width), pcd_mask_close.reshape(batch_size, height, width), pcd_mask_far.reshape(batch_size, height, width)
-    rgbd_images[~pcd_mask,:3] = np.array([0.,0.,0.])
+    rgbd_images[~pcd_mask,:3] = np.array([0.,255.,0.])
 
     camera_tilt_angle = Rotation.from_matrix(camera_extrinsic[:3,:3]).as_euler('ZYX')[2] + np.pi / 2
     
@@ -210,7 +254,7 @@ def clip_depth_alone_gripper_x_batch(goal_key, rgbd_images, gripper_pose, camera
     # rgbd_images[..., 3] = np.clip(rgbd_images[...,3], -x_range_half, x_range_half)
     return rgbd_images
 
-def convert_sideview_to_gripper_batch(sim, images, goal_key, robot0_eef_pos, camera_info=None, bbox_size = (40, 40)):
+def convert_sideview_to_gripper_batch(sim, images, goal_key, robot0_eef_pos, camera_info=None, bbox_size = (40, 40), centering_method='crop'):
     """
     Clip depths to be centered at gripper x axis for a batch of raw RGBD images.
     
@@ -240,19 +284,26 @@ def convert_sideview_to_gripper_batch(sim, images, goal_key, robot0_eef_pos, cam
     depth_normalization_around_gripper = False
     raw_image = images.copy().astype(float)
 
-
+    # clip the pixels that are behind the gripper
     if 'rgbd' in goal_key:
         raw_image[...,3] = undiscretize_depth(raw_image[...,3], goal_key.split('_')[0]+'_depth')
-
     if 'rgbd' in goal_key:
         raw_image = clip_depth_alone_gripper_x_batch(goal_key, raw_image, robot0_eef_pos, intrinsic, extrinsic, depth_normalization_around_gripper, x_range=depth_range)
     
+    # convert eef pos in world coor to pixel locations in image coor
     bbox_centers = xyz_to_bbox_center_batch(robot0_eef_pos, intrinsic, extrinsic)
     bbox_center_in_image = np.clip(bbox_centers, 0, np.array([h,w]))
     if not (bbox_center_in_image == bbox_centers).all():
         print("WARNING: End-effector center is not in observation. Trying clipping.")
 
-    gripper_centered_current_obs = crop_and_pad_batch(raw_image, bbox_center_in_image, output_size=bbox_size)
+    # extracting gripper centric images
+    if centering_method == 'crop':
+        gripper_centered_current_obs = crop_and_pad_batch(raw_image, bbox_center_in_image, output_size=bbox_size)
+    elif centering_method == 'mask':
+        gripper_centered_current_obs = mask_batch(raw_image, bbox_center_in_image, output_size=bbox_size)
+    else:
+        assert centering_method in ['crop', 'mask'], f"Only support [crop, mask], you are trying to use {centering_method}"
+
     gripper_centered_current_obs = F.interpolate(torch.from_numpy(gripper_centered_current_obs.astype(np.uint8)).permute(0, 3, 1, 2), (h, w), mode='bilinear').permute(0, 2, 3, 1).numpy()
     return gripper_centered_current_obs, bbox_center_in_image
 
