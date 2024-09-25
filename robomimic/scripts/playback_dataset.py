@@ -226,8 +226,11 @@ def playback_dataset(args):
         args.xml_filename = f["data"].attrs["xml_filename"]
         args.xml_multicamera = f["data"].attrs["xml_multicamera"]
 
-        with open(args.xml_filename, "r+") as f_xml:
+        print(args.xml_multicamera)
+
+        with open(args.robosuite_xml_folder_path + args.xml_filename, "r") as f_xml:
             args.old_xml = f_xml.read()
+        with open(args.robosuite_xml_folder_path + args.xml_filename, "w") as f_xml:
             f_xml.write(args.xml_multicamera)
 
     # create environment only if not playing back with observations
@@ -340,7 +343,7 @@ if __name__ == "__main__":
         "--robosuite_xml_folder_path",
         type=str,
         help="path to robosuite xml folder",
-        default="~/data/nharlalk/robosuite/robosuite/models/assets/arenas/",
+        default="/users/nharlalk/data/nharlalk/robosuite/robosuite/models/assets/arenas/",
     )
     parser.add_argument(
         "--filter_key",
@@ -419,5 +422,5 @@ if __name__ == "__main__":
         raise e
     finally:
         if args.multicamera:
-            with open(args.xml_filename, "w") as f_xml:
+            with open(args.robosuite_xml_folder_path + args.xml_filename, "w") as f_xml:
                 f_xml.write(args.old_xml)
