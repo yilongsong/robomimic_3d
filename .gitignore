@@ -121,7 +121,7 @@ venv.bak/
 
 # mypy
 .mypy_cache/
-*.mp4
+# *.mp4
 *.pth
 
 # private macros

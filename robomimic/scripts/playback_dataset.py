@@ -320,10 +320,10 @@ def playback_dataset(args):
     f.close()
     if write_video:
         video_writer.close()
-    save_path = os.path.join(
-        os.environ.get("ROBOT_DATASETS_DIR"), args.dataset.split("/")[-1].split(".")[0]
-    )
-    np.save(f"{save_path}.npy", sequences)
+    # save_path = os.path.join(
+    #     os.environ.get("ROBOT_DATASETS_DIR"), args.dataset.split("/")[-1].split(".")[0]
+    # )
+    # np.save(f"{save_path}.npy", sequences)
 
 
 if __name__ == "__main__":
