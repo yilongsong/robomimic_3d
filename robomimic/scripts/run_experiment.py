@@ -41,12 +41,12 @@ def generate_dataset():
 def play_dataset():
     dataset_path = os.path.join(OUTPUT_DIR, OUTPUT_FILE)
 
-    for i in range(10, 15):
+    for i in range(NUM_CAMERAS):
         command = f"python playback_dataset.py --n 1 --render_image_names camera{i} \
             --dataset {dataset_path} --video_path ~/data/nharlalk/robomimic/robomimic/playbacks/{OUTPUT_FILE.split('/')[-1].split('.')[0]}_camera{i}.mp4 \
                 --multicamera"
 
-        subprocess.run(command, shell=True)
+        subprocess.run(command, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 if __name__ == "__main__":
