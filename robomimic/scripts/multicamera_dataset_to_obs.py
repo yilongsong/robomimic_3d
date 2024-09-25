@@ -10,7 +10,6 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 from performance_analysis import check_memory_and_time
-from temp import add_xml_to_dataset
 
 import robomimic.utils.env_utils as EnvUtils
 import robomimic.utils.file_utils as FileUtils
@@ -513,8 +512,6 @@ def generate_multicamera_obs_dataset(args):
     print("Setting up cameras...")
     old_xml, xml_multicamera = setup_additional_cameras(args)
     args.xml_multicamera = xml_multicamera
-    add_xml_to_dataset(xml_multicamera)
-    exit()
 
     print("Generating observations...")
 

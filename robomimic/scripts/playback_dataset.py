@@ -220,6 +220,16 @@ def playback_dataset(args):
             not args.use_actions
         ), "playback with observations is offline and does not support action playback"
 
+    f = h5py.File(args.dataset, "r")
+
+    if args.multicamera:
+        args.xml_filename = f["data"].attrs["xml_filename"]
+        args.xml_multicamera = f["data"].attrs["xml_multicamera"]
+
+        with open(args.xml_filename, "r+") as f_xml:
+            args.old_xml = f_xml.read()
+            f_xml.write(args.xml_multicamera)
+
     # create environment only if not playing back with observations
     if not args.use_obs:
         # need to make sure ObsUtils knows which observations are images, but it doesn't matter
@@ -240,8 +250,6 @@ def playback_dataset(args):
 
         # some operations for playback are robosuite-specific, so determine if this environment is a robosuite env
         is_robosuite_env = EnvUtils.is_robosuite_env(env_meta)
-
-    f = h5py.File(args.dataset, "r")
 
     # list of all demonstration episodes (sorted in increasing number order)
     if args.filter_key is not None:
@@ -323,7 +331,7 @@ if __name__ == "__main__":
         help="path to hdf5 dataset",
     )
     parser.add_argument(
-        "--multicamara",
+        "--multicamera",
         action="store_true",
         help="if flag is provided, add custom cameras to xml file",
         default=False,
@@ -398,4 +406,12 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    playback_dataset(args)
+    try:
+        playback_dataset(args)
+    except Exception as e:
+        print(f"Error: {e}")
+        raise e
+    finally:
+        if args.multicamera:
+            with open(args.xml_filename, "w") as f_xml:
+                f_xml.write(args.old_xml)
