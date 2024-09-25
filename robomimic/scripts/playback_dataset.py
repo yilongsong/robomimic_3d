@@ -337,6 +337,12 @@ if __name__ == "__main__":
         default=False,
     )
     parser.add_argument(
+        "--robosuite_xml_folder_path",
+        type=str,
+        help="path to robosuite xml folder",
+        default="~/data/nharlalk/robosuite/robosuite/models/assets/arenas/",
+    )
+    parser.add_argument(
         "--filter_key",
         type=str,
         default=None,
