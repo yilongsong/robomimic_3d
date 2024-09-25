@@ -10,6 +10,7 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 from performance_analysis import check_memory_and_time
+from temp import add_xml_to_dataset
 
 import robomimic.utils.env_utils as EnvUtils
 import robomimic.utils.file_utils as FileUtils
@@ -227,7 +228,7 @@ def generate_camera_pos_and_quat(args):
     return pos, quats
 
 
-def setup_additional_cameras(pos, quat, args):
+def setup_additional_cameras(args):
     """
     Adds a camera to the simulation.
 
@@ -235,6 +236,8 @@ def setup_additional_cameras(pos, quat, args):
         pos (np.array): camera position
         quat (np.array): camera quaternion
     """
+    pos, quat = generate_camera_pos_and_quat(args)
+
     pos_string = [array_to_string(p) for p in pos]
     quat_string = [array_to_string(q) for q in quat]
 
@@ -266,7 +269,7 @@ def setup_additional_cameras(pos, quat, args):
         )
         args.custom_camera_names = [names[i] for i in range(len(pos))]
 
-    return old_xml
+    return old_xml, xml
 
 
 def extract_trajectory(args, env_meta, initial_state, states, actions, done_mode=1):
@@ -493,6 +496,7 @@ def generate_obs_for_dataset_parallel(args):
     # global metadata
     data_group.attrs["total"] = total_samples
     data_group.attrs["env_args"] = json.dumps(env.serialize(), indent=4)
+    data_group.attrs["xml_multicamera"] = args.xml_multicamera
     print("Wrote {} demos to {}".format(len(demos), args.output_file))
 
     f.close()
@@ -506,11 +510,11 @@ def restore_xml(args, old_xml):
 
 @check_memory_and_time
 def generate_multicamera_obs_dataset(args):
-    print("Generating camera positions and quarternions...")
-    camera_positions, camera_quarternions = generate_camera_pos_and_quat(args)
-
     print("Setting up cameras...")
-    old_xml = setup_additional_cameras(camera_positions, camera_quarternions, args)
+    old_xml, xml_multicamera = setup_additional_cameras(args)
+    args.xml_multicamera = xml_multicamera
+    add_xml_to_dataset(xml_multicamera)
+    exit()
 
     print("Generating observations...")
 
