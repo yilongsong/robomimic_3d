@@ -128,8 +128,9 @@ def crop_and_pad_batch(images, bb_centers, output_size):
     cropped_images = []
     
     for img, top_left, bottom_right in zip(images, top_lefts, bottom_rights):
-        pad_with = (((0, 255, 0, 255), (0, 255, 0, 255)), ((0, 255, 0, 255), (0, 255, 0, 255)), (0, 0)) # pad with green and 255 depth
-        padded_img = np.pad(img, ((image_pad_height,image_pad_height),(image_pad_width,image_pad_width),(0,0)), mode='constant',constant_values=pad_with)
+        pad_with = (((0, 255, 0, 255), (0, 255, 0, 255)), ((0, 255, 0, 255), (0, 255, 0, 255)), ((0, 0))) # pad with green and 255 depth
+        # pad_with = ((0, 255), (0, 255), (0, 255))
+        padded_img = np.pad(img, ((image_pad_height,image_pad_height),(image_pad_width,image_pad_width),(0,0)), mode='constant',constant_values=np.array(pad_with, dtype=object))
 
         x1, y1 = top_left + image_pad_height
         x2, y2 = bottom_right + image_pad_width
