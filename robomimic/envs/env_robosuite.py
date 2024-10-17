@@ -291,13 +291,13 @@ class EnvRobosuite(EB.EnvBase):
 
         if self.env.use_camera_obs:
             center = np.array([0, 0, 0.7])
-            ws_size = 0.6
+            ws_size = 1 # 0.6
             workspace = np.array([
                 [center[0] - ws_size/2, center[0] + ws_size/2],
                 [center[1] - ws_size/2, center[1] + ws_size/2],
                 [center[2], center[2] + ws_size]
             ])
-
+            
             # voxel_bound = np.array([
             #     [center[0] - ws_size/2, center[1] - ws_size/2, center[2] - 0.05],
             #     [center[0] + ws_size/2, center[1] + ws_size/2, center[2] - 0.05 + ws_size],
