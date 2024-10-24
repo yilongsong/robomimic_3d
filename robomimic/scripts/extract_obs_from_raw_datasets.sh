@@ -100,7 +100,7 @@ python dataset_states_to_obs.py --done_mode 2 \
 python dataset_states_to_obs.py --done_mode 2 \
 --dataset $BASE_DATASET_DIR/lift/mh/demo_v141.hdf5 \
 --output_name low_dim_v141.hdf5
-python dataset_states_to_obs.py --done_mode 2 \
+python dataset_statesrobot_to_obs.py --done_mode 2 \
 --dataset $BASE_DATASET_DIR/lift/mh/demo_v141.hdf5 \
 --output_name image_v141.hdf5 --camera_names agentview robot0_eye_in_hand --camera_height 84 --camera_width 84
 

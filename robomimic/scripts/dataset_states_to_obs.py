@@ -47,11 +47,6 @@ Example usage:
     python dataset_states_to_obs.py --dataset /path/to/demo.hdf5 --output_name image_dense_done_1.hdf5 \
         --done_mode 1 --dense --camera_names agentview robot0_eye_in_hand --camera_height 84 --camera_width 84
 """
-
-
-'''
-python dataset_states_to_obs.py --dataset /home/yilong/Documents/mimicgen_envs/datasets/core/square_d0.hdf5 --output_name /home/yilong/Documents/mimicgen_envs/datasets/core/data.hdf5
-'''
 import os
 import json
 import h5py
@@ -65,71 +60,16 @@ import robomimic.utils.file_utils as FileUtils
 import robomimic.utils.env_utils as EnvUtils
 from robomimic.envs.env_base import EnvBase
 
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-
-import multiprocessing
-multiprocessing.set_start_method('spawn', force=True)
-
-def find_index_after_pattern(text, pattern, after_pattern):
-        # Find the index of the first occurrence of after_pattern
-        start_index = text.find(after_pattern)
-        if start_index == -1:
-            return -1
-        
-        # Search for pattern after the start_index
-        index_after_pattern = text.find(pattern, start_index)
-        if index_after_pattern == -1:
-            return -1
-        
-        # Return the index after the pattern
-        return index_after_pattern + len(pattern)
-
-def exclude_cameras_from_obs(traj, camera_names, store_voxel):
-    if len(camera_names) > 0:
-        for cam in camera_names:
-            del traj['obs'][f"{cam}_image"]
-            del traj['obs'][f"{cam}_depth"]
-            del traj['obs'][f"{cam}_rgbd"]
-
-
-def visualize_voxel(traj):
-    
-    np_voxels = traj['obs']['voxels'][0]
-    #occupancy = traj['obs']['voxels'][0][0,:,:,:]
-    #indices = np.argwhere(occupancy == 1)[0]
-
-    # Create a 3D plot
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-
-    indices = np.argwhere(np_voxels[0] != 0)
-    colors = np_voxels[1:, indices[:, 0], indices[:, 1], indices[:, 2]].T
-
-    ax.scatter(indices[:, 0], indices[:, 1], indices[:, 2], c=colors/255., marker='s')
-
-    # Set labels and show the plot
-    ax.set_xlabel('X Axis')
-    ax.set_ylabel('Y Axis')
-    ax.set_zlabel('Z Axis')
-    ax.set_xlim(0, 64)
-    ax.set_ylim(0, 64)
-    ax.set_zlim(0, 64)  
-
-    plt.show()
 
 def extract_trajectory(
-    env_meta,
-    args, 
-    camera_names,
+    env, 
     initial_state, 
     states, 
     actions,
     done_mode,
-    store_voxel=True,
+    camera_names=None, 
     camera_height=84, 
     camera_width=84,
-    render=False,
 ):
     """
     Helper function to extract observations, rewards, and dones along a trajectory using
@@ -144,23 +84,11 @@ def extract_trajectory(
             success state. If 1, done is 1 at the end of each trajectory. 
             If 2, do both.
     """
-    done_mode = args.done_mode
-    env = EnvUtils.create_env_for_data_processing(
-        env_meta=env_meta,
-        # camera_names=['frontview', 'birdview', 'agentview', 'sideview', 'agentview_full', 'robot0_robotview', 'robot0_eye_in_hand'], 
-        camera_names=camera_names, 
-        camera_height=args.camera_height, 
-        camera_width=args.camera_width, 
-        reward_shaping=args.shaped,
-        use_depth_obs=True,
-        render=render
-    )
+    assert isinstance(env, EnvBase)
     assert states.shape[0] == actions.shape[0]
 
     # load the initial state
     env.reset()
-    if render:
-        env.env.viewer.set_camera(camera_id=0)
     obs = env.reset_to(initial_state)
 
     # maybe add in intrinsics and extrinsics for all cameras
@@ -194,10 +122,7 @@ def extract_trajectory(
         else:
             # reset to simulator state to get observation
             next_obs = env.reset_to({"states" : states[t]})
-        
-        if render:
-            print(actions[t-1])
-            env.env.render()
+
         # infer reward signal
         # note: our tasks use reward r(s'), reward AFTER transition, so this is
         #       the reward for the current timestep
@@ -213,8 +138,6 @@ def extract_trajectory(
             done = done or env.is_success()["task"]
         done = int(done)
 
-        
-
         # collect transition
         traj["obs"].append(obs)
         traj["next_obs"].append(next_obs)
@@ -227,10 +150,6 @@ def extract_trajectory(
     # convert list of dict to dict of list for obs dictionaries (for convenient writes to hdf5 dataset)
     traj["obs"] = TensorUtils.list_of_flat_dict_to_dict_of_list(traj["obs"])
     traj["next_obs"] = TensorUtils.list_of_flat_dict_to_dict_of_list(traj["next_obs"])
-
-    if not store_voxel:
-        del traj["obs"]['voxels']
-        del traj["next_obs"]['voxels']
 
     # list to numpy array
     for k in traj:
@@ -286,42 +205,16 @@ def get_camera_info(
         )
     return camera_info
 
-def worker(x):
-    env_meta, args, camera_names, initial_state, states, actions, store_voxel, render= x
-    traj, camera_info = extract_trajectory(
-        env_meta=env_meta,
-        args=args,
-        camera_names=camera_names,
-        initial_state=initial_state, 
-        states=states, 
-        actions=actions,
-        store_voxel = store_voxel,
-        done_mode=args.done_mode,
-        camera_height=args.camera_height, 
-        camera_width=args.camera_width,
-        render=render
-    )
-    return traj, camera_info
-
 
 def dataset_states_to_obs(args):
-    store_voxel = args.store_voxel
-    render = args.render
-    if render:
-        assert args.num_workers==1, "args.num_workers should be 1 if render"
     if args.depth:
         assert len(args.camera_names) > 0, "must specify camera names if using depth"
 
     # create environment to use for data processing
     env_meta = FileUtils.get_env_metadata_from_dataset(dataset_path=args.dataset)
-    
-    camera_names = ['frontview', 'agentview', 'robot0_eye_in_hand']
-    additional_camera_for_voxel = ['birdview', 'sideview', 'sideview2', 'backview'] if store_voxel else []
-    camera_names = camera_names + additional_camera_for_voxel
-
     env = EnvUtils.create_env_for_data_processing(
         env_meta=env_meta,
-        camera_names=camera_names, 
+        camera_names=args.camera_names, 
         camera_height=args.camera_height, 
         camera_width=args.camera_width, 
         reward_shaping=args.shaped,
@@ -334,13 +227,6 @@ def dataset_states_to_obs(args):
 
     # some operations for playback are robosuite-specific, so determine if this environment is a robosuite env
     is_robosuite_env = EnvUtils.is_robosuite_env(env_meta)
-    camera_info = None
-    if is_robosuite_env:
-        camera_info = env.get_camera_info(
-            camera_names=camera_names, 
-            camera_height=args.camera_height, 
-            camera_width=args.camera_width,
-        )
 
     # list of all demonstration episodes (sorted in increasing number order)
     f = h5py.File(args.dataset, "r")
@@ -360,71 +246,64 @@ def dataset_states_to_obs(args):
     print("output file: {}".format(output_path))
 
     total_samples = 0
-    num_workers = args.num_workers
-    
-    
-    for i in range(0, len(demos), num_workers):
-        end = min(i + num_workers, len(demos))
-        initial_state_list = []
-        states_list = []
-        actions_list = []
-        for j in range(i, end):
-            ep = demos[j]
-            # prepare initial state to reload from
-            states = f["data/{}/states".format(ep)][()]
-            initial_state = dict(states=states[0])
-            if is_robosuite_env:
-                initial_state["model"] = f["data/{}".format(ep)].attrs["model_file"]
-            actions = f["data/{}/actions".format(ep)][()]
+    for ind in tqdm(range(len(demos))):
+        ep = demos[ind]
 
-            initial_state_list.append(initial_state)
-            states_list.append(states)
-            actions_list.append(actions)
-            
-        with multiprocessing.Pool(num_workers) as pool:
-            output = pool.map(worker, [[env_meta, args, camera_names, initial_state_list[j], states_list[j], actions_list[j], store_voxel, render] for j in range(len(initial_state_list))]) 
+        # prepare initial state to reload from
+        states = f["data/{}/states".format(ep)][()]
+        initial_state = dict(states=states[0])
+        if is_robosuite_env:
+            initial_state["model"] = f["data/{}".format(ep)].attrs["model_file"]
 
-        for j, ind in enumerate(range(i, end)):
-            ep = demos[ind]
-            traj, camera_info = output[j]
-            exclude_cameras_from_obs(traj, additional_camera_for_voxel, store_voxel)
-            # maybe copy reward or done signal from source file
-            if args.copy_rewards:
-                traj["rewards"] = f["data/{}/rewards".format(ep)][()]
-            if args.copy_dones:
-                traj["dones"] = f["data/{}/dones".format(ep)][()]
+        # extract obs, rewards, dones
+        actions = f["data/{}/actions".format(ep)][()]
+        traj, camera_info = extract_trajectory(
+            env=env, 
+            initial_state=initial_state, 
+            states=states, 
+            actions=actions,
+            done_mode=args.done_mode,
+            camera_names=args.camera_names, 
+            camera_height=args.camera_height, 
+            camera_width=args.camera_width,
+        )
 
-            # store transitions
+        # maybe copy reward or done signal from source file
+        if args.copy_rewards:
+            traj["rewards"] = f["data/{}/rewards".format(ep)][()]
+        if args.copy_dones:
+            traj["dones"] = f["data/{}/dones".format(ep)][()]
 
-            # IMPORTANT: keep name of group the same as source file, to make sure that filter keys are
-            #            consistent as well
-            ep_data_grp = data_grp.create_group(ep)
-            ep_data_grp.create_dataset("actions", data=np.array(traj["actions"]))
-            ep_data_grp.create_dataset("states", data=np.array(traj["states"]))
-            ep_data_grp.create_dataset("rewards", data=np.array(traj["rewards"]))
-            ep_data_grp.create_dataset("dones", data=np.array(traj["dones"]))
-            for k in traj["obs"]:
+        # store transitions
+
+        # IMPORTANT: keep name of group the same as source file, to make sure that filter keys are
+        #            consistent as well
+        ep_data_grp = data_grp.create_group(ep)
+        ep_data_grp.create_dataset("actions", data=np.array(traj["actions"]))
+        ep_data_grp.create_dataset("states", data=np.array(traj["states"]))
+        ep_data_grp.create_dataset("rewards", data=np.array(traj["rewards"]))
+        ep_data_grp.create_dataset("dones", data=np.array(traj["dones"]))
+        for k in traj["obs"]:
+            if args.compress:
+                ep_data_grp.create_dataset("obs/{}".format(k), data=np.array(traj["obs"][k]), compression="gzip")
+            else:
+                ep_data_grp.create_dataset("obs/{}".format(k), data=np.array(traj["obs"][k]))
+            if not args.exclude_next_obs:
                 if args.compress:
-                    ep_data_grp.create_dataset("obs/{}".format(k), data=np.array(traj["obs"][k]), compression="gzip")
+                    ep_data_grp.create_dataset("next_obs/{}".format(k), data=np.array(traj["next_obs"][k]), compression="gzip")
                 else:
-                    ep_data_grp.create_dataset("obs/{}".format(k), data=np.array(traj["obs"][k]))
-                if not args.exclude_next_obs:
-                    if args.compress:
-                        ep_data_grp.create_dataset("next_obs/{}".format(k), data=np.array(traj["next_obs"][k]), compression="gzip")
-                    else:
-                        ep_data_grp.create_dataset("next_obs/{}".format(k), data=np.array(traj["next_obs"][k]))
+                    ep_data_grp.create_dataset("next_obs/{}".format(k), data=np.array(traj["next_obs"][k]))
 
-            # episode metadata
-            if is_robosuite_env:
-                ep_data_grp.attrs["model_file"] = traj["initial_state_dict"]["model"] # model xml for this episode
-            
-            if camera_info is not None:
-                assert is_robosuite_env
-                ep_data_grp.attrs["camera_info"] = json.dumps(camera_info, indent=4)
-            ep_data_grp.attrs["num_samples"] = traj["actions"].shape[0] # number of transitions in this episode
-            total_samples += traj["actions"].shape[0]
-            print("ep {}: wrote {} transitions to group {}".format(ind, ep_data_grp.attrs["num_samples"], ep))
-        
+        # episode metadata
+        if is_robosuite_env:
+            ep_data_grp.attrs["model_file"] = traj["initial_state_dict"]["model"] # model xml for this episode
+        ep_data_grp.attrs["num_samples"] = traj["actions"].shape[0] # number of transitions in this episode
+
+        if camera_info is not None:
+            assert is_robosuite_env
+            ep_data_grp.attrs["camera_info"] = json.dumps(camera_info, indent=4)
+
+        total_samples += traj["actions"].shape[0]
 
 
     # copy over all filter keys that exist in the original hdf5
@@ -465,13 +344,6 @@ if __name__ == "__main__":
         help="(optional) stop after n trajectories are processed",
     )
 
-    parser.add_argument(
-        "--num_workers",
-        type=int,
-        default=1,
-        help="(optional) num_workers for parallel saving",
-    )
-
     # flag for reward shaping
     parser.add_argument(
         "--shaped", 
@@ -484,16 +356,8 @@ if __name__ == "__main__":
         "--camera_names",
         type=str,
         nargs='+',
-        default=['robot0_eye_in_hand', 'spaceview'],
+        default=[],
         help="(optional) camera name(s) to use for image observations. Leave out to not use image observations.",
-    )
-
-    # set main camera which is used to get gripper-centric images
-    parser.add_argument(
-        "--main_camera",
-        type=str,
-        default='frontview',
-        help="(optional) main camera for gripper-centric images",
     )
 
     parser.add_argument(
@@ -515,13 +379,6 @@ if __name__ == "__main__":
         "--depth", 
         action='store_true',
         help="(optional) use depth observations for each camera",
-    )
-
-    # flag for render visualization
-    parser.add_argument(
-        "--render", 
-        action='store_true',
-        help="(optional) render frames to check demonstrations",
     )
 
     # specifies how the "done" signal is written. If "0", then the "done" signal is 1 wherever 
@@ -562,13 +419,6 @@ if __name__ == "__main__":
         "--compress", 
         action='store_true',
         help="(optional) compress observations with gzip option in hdf5",
-    )
-
-    # flag to save voxels in hdf5
-    parser.add_argument(
-        "--store_voxel", 
-        action='store_true',
-        help="(optional) save voxels in dataset",
     )
 
     args = parser.parse_args()
