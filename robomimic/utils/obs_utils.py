@@ -56,7 +56,7 @@ DEPTH_MINMAX = {'birdview_depth': [1.180, 2.480],
                 'frontview_depth': [1.2, 2.2],
                 'fronttableview_depth': [0.6, 1.6],
                 'sidetableview_depth': [0.6, 1.6],
-                'square_d0view_depth': [0.6, 1.6],
+                'squared0view_depth': [0.6, 1.6],
                 'spaceview_depth': [0.45, 1.45],
                 'farspaceview_depth': [0.58, 1.58],
                 }
