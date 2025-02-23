@@ -291,7 +291,7 @@ class EnvRobosuite(EB.EnvBase):
 
         if self.env.use_camera_obs:
             center = np.array([0, 0, 0.7])
-            ws_size = 1 # 0.6
+            ws_size = 0.8 # 1
             workspace = np.array([
                 [center[0] - ws_size/2, center[0] + ws_size/2],
                 [center[1] - ws_size/2, center[1] + ws_size/2],
@@ -335,25 +335,49 @@ class EnvRobosuite(EB.EnvBase):
                 pcd_o3d = np2o3d(trans_pcd[mask], color.reshape(-1, 3)[mask].astype(np.float64) / 255)
 
                 all_pcds += pcd_o3d
+            
+            # points = np.asarray(all_pcds.points, dtype=np.float32)
+            # colors = (np.asarray(all_pcds.colors) * 255).astype(np.uint8)
 
-            voxel_grid = o3d.geometry.VoxelGrid.create_from_point_cloud_within_bounds(all_pcds, voxel_size=ws_size/voxel_size+1e-4, min_bound=voxel_bound[0], max_bound=voxel_bound[1])
-            voxels = voxel_grid.get_voxels()  # returns list of voxels
-            if len(voxels) == 0:
-                np_voxels = np.zeros([4, voxel_size, voxel_size, voxel_size], dtype=np.uint8)
-            else:
-                indices = np.stack(list(vx.grid_index for vx in voxels))
-                colors = np.stack(list(vx.color for vx in voxels))
+            # def pad_or_truncate(arr, target_size):
+            #     if len(arr) > target_size:
+            #         return arr[:target_size]
+            #     elif len(arr) < target_size:
+            #         return np.pad(arr, ((0, target_size - len(arr)), (0, 0)), mode='constant')
+            #     return arr
+            
+            # ret["pointcloud_points"] = pad_or_truncate(points, 1000000)
+            # ret["pointcloud_colors"] = pad_or_truncate(colors, 1000000)
+            
+            # def visualize_and_save_pcd(all_pcds, save_dir="debug_visualizations"):
+            #     import os
+            #     # Ensure directory exists
+            #     os.makedirs(save_dir, exist_ok=True)
+                
+            #     # 1. Save raw point cloud data
+            #     o3d.io.write_point_cloud(f"{save_dir}/scene_pointcloud.ply", all_pcds)
 
-                mask = (indices > 0) * (indices < voxel_size)
-                indices = indices[mask.all(axis=1)]
-                colors = colors[mask.all(axis=1)]
+                
+            # visualize_and_save_pcd(all_pcds)
+            
+            # voxel_grid = o3d.geometry.VoxelGrid.create_from_point_cloud_within_bounds(all_pcds, voxel_size=ws_size/voxel_size+1e-4, min_bound=voxel_bound[0], max_bound=voxel_bound[1])
+            # voxels = voxel_grid.get_voxels()  # returns list of voxels
+            # if len(voxels) == 0:
+            #     np_voxels = np.zeros([4, voxel_size, voxel_size, voxel_size], dtype=np.uint8)
+            # else:
+            #     indices = np.stack(list(vx.grid_index for vx in voxels))
+            #     colors = np.stack(list(vx.color for vx in voxels))
 
-                np_voxels = np.zeros([4, voxel_size, voxel_size, voxel_size], dtype=np.uint8)
-                np_voxels[0, indices[:, 0], indices[:, 1], indices[:, 2]] = 1
-                np_voxels[1:, indices[:, 0], indices[:, 1], indices[:, 2]] = colors.T * 255
+            #     mask = (indices > 0) * (indices < voxel_size)
+            #     indices = indices[mask.all(axis=1)]
+            #     colors = colors[mask.all(axis=1)]
 
-            np_voxels = np.moveaxis(np_voxels, [0, 1, 2, 3], [0, 3, 2, 1])
-            np_voxels = np.flip(np_voxels, (1, 2))
+            #     np_voxels = np.zeros([4, voxel_size, voxel_size, voxel_size], dtype=np.uint8)
+            #     np_voxels[0, indices[:, 0], indices[:, 1], indices[:, 2]] = 1
+            #     np_voxels[1:, indices[:, 0], indices[:, 1], indices[:, 2]] = colors.T * 255
+
+            # np_voxels = np.moveaxis(np_voxels, [0, 1, 2, 3], [0, 3, 2, 1])
+            # np_voxels = np.flip(np_voxels, (1, 2))
 
             # import matplotlib.pyplot as plt
             # from mpl_toolkits.mplot3d import Axes3D
@@ -377,7 +401,7 @@ class EnvRobosuite(EB.EnvBase):
             # plt.savefig('test2.png')
             # plt.close()
 
-            ret['voxels'] = np_voxels
+            # ret['voxels'] = np_voxels
             # ret['pcd'] = all_pcds
 
         if self._is_v1:
