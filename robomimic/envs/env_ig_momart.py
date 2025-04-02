@@ -147,7 +147,7 @@ class EnvGibsonMOMART(EB.EnvBase):
             info: extra information
         """
         obs, r, done, info = self.env.step(action)
-        obs = self.get_observation(obs)
+        obs = self.get_observation(obs, get_point_clouds=True)
         return obs, r, self.is_done(), info
 
     def reset(self):

@@ -33,6 +33,8 @@ except ImportError:
 from robomimic.utils.obs_utils import (DEPTH_MINMAX, discretize_depth, undiscretize_depth, xyz_to_bbox_center_batch,
                                        crop_and_pad_batch, clip_depth_alone_gripper_x_batch, convert_sideview_to_gripper_batch)
 
+from action_extractor.point_cloud.config import ADDITIONAL_CAMERAS_FOR_POINT_CLOUD # quick fix to specify cameras for point cloud extraction
+
 
 
 def depth2fgpcd(depth, mask, cam_params):
@@ -148,7 +150,7 @@ class EnvRobosuite(EB.EnvBase):
                 if ("joint_pos" in ob_name) or ("eef_vel" in ob_name):
                     self.env.modify_observable(observable_name=ob_name, attribute="active", modifier=True)
 
-    def step(self, action):
+    def step(self, action, get_point_clouds=False):
         """
         Step in the environment with an action.
 
@@ -162,10 +164,10 @@ class EnvRobosuite(EB.EnvBase):
             info (dict): extra information
         """
         obs, r, done, info = self.env.step(action)
-        obs = self.get_observation(obs)
+        obs = self.get_observation(obs, get_point_clouds=get_point_clouds)
         return obs, r, self.is_done(), info
 
-    def reset(self):
+    def reset(self, get_point_clouds=False):
         """
         Reset environment.
 
@@ -173,9 +175,9 @@ class EnvRobosuite(EB.EnvBase):
             observation (dict): initial observation dictionary.
         """
         di = self.env.reset()
-        return self.get_observation(di)
+        return self.get_observation(di, get_point_clouds=get_point_clouds)
 
-    def reset_to(self, state):
+    def reset_to(self, state, get_point_clouds=False):
         """
         Reset to a specific simulator state.
 
@@ -213,7 +215,7 @@ class EnvRobosuite(EB.EnvBase):
             self.set_goal(**state["goal"])
         if should_ret:
             # only return obs if we've done a forward call - otherwise the observations will be garbage
-            return self.get_observation()
+            return self.get_observation(get_point_clouds=get_point_clouds)
         return None
 
     def render(self, mode="human", height=None, width=None, camera_name="agentview"):
@@ -239,7 +241,7 @@ class EnvRobosuite(EB.EnvBase):
         else:
             raise NotImplementedError("mode={} is not implemented".format(mode))
 
-    def get_observation(self, di=None):
+    def get_observation(self, di=None, get_point_clouds=False):
         """
         Get current environment observation dictionary.
 
@@ -289,7 +291,7 @@ class EnvRobosuite(EB.EnvBase):
             #     ret[next_goal_key] = np.zeros_like(ret[goal_key])
             
 
-        if self.env.use_camera_obs:
+        if self.env.use_camera_obs and get_point_clouds:
             center = np.array([0, 0, 0.7])
             ws_size = 0.8 # 1
             workspace = np.array([
@@ -302,11 +304,14 @@ class EnvRobosuite(EB.EnvBase):
             #     [center[0] - ws_size/2, center[1] - ws_size/2, center[2] - 0.05],
             #     [center[0] + ws_size/2, center[1] + ws_size/2, center[2] - 0.05 + ws_size],
             # ])
+            
+            
             voxel_bound = workspace.T
             voxel_size = 64
 
             all_pcds = o3d.geometry.PointCloud()
-            for cam_idx, camera_name in enumerate(self.env.camera_names):
+            
+            for cam_idx, camera_name in enumerate(ADDITIONAL_CAMERAS_FOR_POINT_CLOUD):
                 cam_height = self.env.camera_heights[cam_idx]
                 cam_width = self.env.camera_widths[cam_idx]
                 ext_mat = get_camera_extrinsic_matrix(self.env.sim, camera_name)
@@ -336,18 +341,19 @@ class EnvRobosuite(EB.EnvBase):
 
                 all_pcds += pcd_o3d
             
-            # points = np.asarray(all_pcds.points, dtype=np.float32)
-            # colors = (np.asarray(all_pcds.colors) * 255).astype(np.uint8)
+            points = np.asarray(all_pcds.points, dtype=np.float32)
+            colors = (np.asarray(all_pcds.colors) * 255).astype(np.uint8)
 
-            # def pad_or_truncate(arr, target_size):
-            #     if len(arr) > target_size:
-            #         return arr[:target_size]
-            #     elif len(arr) < target_size:
-            #         return np.pad(arr, ((0, target_size - len(arr)), (0, 0)), mode='constant')
-            #     return arr
+            def pad_or_truncate(arr, target_size):
+                if len(arr) > target_size:
+                    return arr[:target_size]
+                elif len(arr) < target_size:
+                    return np.pad(arr, ((0, target_size - len(arr)), (0, 0)), mode='constant')
+                return arr
             
-            # ret["pointcloud_points"] = pad_or_truncate(points, 1000000)
-            # ret["pointcloud_colors"] = pad_or_truncate(colors, 1000000)
+            ret["pointcloud_points"] = pad_or_truncate(points, 1000000)
+            ret["pointcloud_colors"] = pad_or_truncate(colors, 1000000)
+            
             
             # def visualize_and_save_pcd(all_pcds, save_dir="debug_visualizations"):
             #     import os
